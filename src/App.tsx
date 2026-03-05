@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked } from 'lucide-react';
+import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked, Image, Video, Music, Upload } from 'lucide-react';
 import TellyDevice from './components/TellyDevice';
 import PrototypeLibrary from './components/PrototypeLibrary';
 import PrototypeDetails from './components/PrototypeDetails';
@@ -9,9 +9,10 @@ import ShareModal from './components/ShareModal';
 import ImportModal from './components/ImportModal';
 import SaveZoneModal from './components/SaveZoneModal';
 import LoadZoneModal from './components/LoadZoneModal';
-import { generateZoneCode } from './services/aiService';
+import LEDControlPanel from './components/LEDControlPanel';
+import { generateZoneCode, generateLEDPattern } from './services/aiService';
 import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/apiService';
-import type { ZoneId, ZoneContent, Prototype, ChatMessage } from './types';
+import type { ZoneId, ZoneContent, Prototype, ChatMessage, LEDSettings } from './types';
 
 const INITIAL_ZONE_CONTENT: ZoneContent = {
   A: '',
@@ -21,6 +22,16 @@ const INITIAL_ZONE_CONTENT: ZoneContent = {
   E: '',
   F: '',
 };
+
+const INITIAL_LED_SETTINGS: LEDSettings = {
+  enabled: false,
+  color: '#6366f1',
+  brightness: 70,
+  pattern: 'solid',
+  speed: 5,
+};
+
+type GenerationMode = 'code' | 'image' | 'video' | 'music';
 
 export default function App() {
   // View state
@@ -35,6 +46,13 @@ export default function App() {
   const [zoneContent, setZoneContent] = useState<ZoneContent>(INITIAL_ZONE_CONTENT);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isDirty, setIsDirty] = useState(false);
+
+  // LED state
+  const [ledSettings, setLedSettings] = useState<LEDSettings>(INITIAL_LED_SETTINGS);
+  const [isGeneratingLED, setIsGeneratingLED] = useState(false);
+
+  // Generation mode (code vs content)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('code');
 
   // Modal states
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -239,6 +257,36 @@ export default function App() {
     }));
     setIsDirty(true);
     setChatHistory(prev => [...prev, { role: 'ai', text: `Loaded template into Zone ${selectedZone}` }]);
+  };
+
+  const handleGenerateLEDPattern = async () => {
+    const userPrompt = prompt.trim() || 'Create a cool ambient lighting effect';
+    setIsGeneratingLED(true);
+    setChatHistory(prev => [...prev, { role: 'user', text: `LED: ${userPrompt}` }]);
+
+    try {
+      const { animation, keyframes } = await generateLEDPattern(userPrompt, ledSettings);
+
+      // Inject keyframes into document if provided
+      if (keyframes) {
+        const styleEl = document.createElement('style');
+        styleEl.textContent = keyframes;
+        document.head.appendChild(styleEl);
+      }
+
+      setLedSettings(prev => ({
+        ...prev,
+        pattern: 'custom',
+        customCSS: animation
+      }));
+
+      setChatHistory(prev => [...prev, { role: 'ai', text: 'Generated custom LED pattern!' }]);
+      setPrompt('');
+    } catch (error) {
+      setChatHistory(prev => [...prev, { role: 'ai', text: `Error: ${error}` }]);
+    } finally {
+      setIsGeneratingLED(false);
+    }
   };
 
   // Determine zone availability based on B and F content
@@ -464,6 +512,7 @@ export default function App() {
               zoneContent={zoneContent}
               selectedZone={selectedZone}
               onSelectZone={setSelectedZone}
+              ledSettings={ledSettings}
             />
           </div>
 
@@ -526,6 +575,47 @@ export default function App() {
                   <span>Load Template</span>
                 </button>
               </div>
+            </div>
+
+            {/* LED Control Panel */}
+            <LEDControlPanel
+              settings={ledSettings}
+              onChange={setLedSettings}
+              onGeneratePattern={handleGenerateLEDPattern}
+              isGenerating={isGeneratingLED}
+            />
+
+            {/* Generation Mode Selector */}
+            <div className="p-4 border-b border-white/10">
+              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">Generation Mode</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { id: 'code' as GenerationMode, icon: Code, label: 'Code' },
+                  { id: 'image' as GenerationMode, icon: Image, label: 'Image' },
+                  { id: 'video' as GenerationMode, icon: Video, label: 'Video' },
+                  { id: 'music' as GenerationMode, icon: Music, label: 'Music' },
+                ].map(({ id, icon: Icon, label }) => (
+                  <button
+                    key={id}
+                    onClick={() => setGenerationMode(id)}
+                    className={`flex flex-col items-center py-2 rounded-lg text-xs transition-colors ${
+                      generationMode === id
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 mb-1" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {generationMode !== 'code' && (
+                <p className="text-xs text-yellow-400/80 mt-2">
+                  {generationMode === 'image' && 'Uses Imagen to generate images'}
+                  {generationMode === 'video' && 'Uses Veo 3 to generate videos'}
+                  {generationMode === 'music' && 'Uses MusicFX to generate audio'}
+                </p>
+              )}
             </div>
 
             {/* Chat History */}

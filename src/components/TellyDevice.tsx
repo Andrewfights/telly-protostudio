@@ -1,15 +1,55 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ZoneId, ZoneContent } from '../types';
+import type { ZoneId, ZoneContent, LEDSettings } from '../types';
 
 interface TellyDeviceProps {
   zoneContent: ZoneContent;
   selectedZone: ZoneId | null;
   onSelectZone: (zone: ZoneId) => void;
+  ledSettings?: LEDSettings;
 }
 
-const TellyDevice: React.FC<TellyDeviceProps> = ({ zoneContent, selectedZone, onSelectZone }) => {
+const TellyDevice: React.FC<TellyDeviceProps> = ({ zoneContent, selectedZone, onSelectZone, ledSettings }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+
+  // Generate LED glow styles
+  const getLEDStyles = () => {
+    if (!ledSettings?.enabled) return {};
+
+    const color = ledSettings.color;
+    const brightness = ledSettings.brightness / 100;
+    const speed = 11 - ledSettings.speed; // Invert so higher = faster
+
+    let animation = '';
+    let boxShadow = `0 0 ${60 * brightness}px ${30 * brightness}px ${color}${Math.round(brightness * 99).toString(16).padStart(2, '0')}`;
+
+    switch (ledSettings.pattern) {
+      case 'pulse':
+        animation = `ledPulse ${speed * 0.5}s ease-in-out infinite`;
+        break;
+      case 'breathe':
+        animation = `ledBreathe ${speed}s ease-in-out infinite`;
+        break;
+      case 'rainbow':
+        animation = `ledRainbow ${speed * 2}s linear infinite`;
+        boxShadow = `0 0 ${60 * brightness}px ${30 * brightness}px currentColor`;
+        break;
+      case 'wave':
+        animation = `ledWave ${speed}s ease-in-out infinite`;
+        break;
+      case 'custom':
+        if (ledSettings.customCSS) {
+          // Custom CSS animation from AI
+          return {
+            boxShadow,
+            animation: ledSettings.customCSS
+          };
+        }
+        break;
+    }
+
+    return { boxShadow, animation };
+  };
 
   // Check if Zone B has content (overrides C+D+E+F)
   const hasZoneBContent = Boolean(zoneContent.B && zoneContent.B.trim());
@@ -102,14 +142,55 @@ const TellyDevice: React.FC<TellyDeviceProps> = ({ zoneContent, selectedZone, on
     );
   };
 
+  const ledStyles = getLEDStyles();
+
   return (
     <div ref={containerRef} className="w-full h-full flex items-center justify-center bg-[#1a1a1a] overflow-hidden relative">
+      {/* LED Animation Keyframes */}
+      <style>{`
+        @keyframes ledPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes ledBreathe {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.05); }
+        }
+        @keyframes ledRainbow {
+          0% { color: #ff0000; }
+          17% { color: #ff8800; }
+          33% { color: #ffff00; }
+          50% { color: #00ff00; }
+          67% { color: #0088ff; }
+          83% { color: #8800ff; }
+          100% { color: #ff0000; }
+        }
+        @keyframes ledWave {
+          0%, 100% { filter: blur(20px); }
+          50% { filter: blur(40px); }
+        }
+      `}</style>
+
+      {/* LED Glow Layer (behind the device) */}
+      {ledSettings?.enabled && (
+        <div
+          className="absolute rounded-2xl pointer-events-none"
+          style={{
+            width: (1920 + 32) * scale + 40,
+            height: (1080 + 100 + 360 + 32 + 16) * scale + 40,
+            ...ledStyles,
+            zIndex: 0,
+          }}
+        />
+      )}
+
       <div
         className="relative bg-[#0a0a0a] shadow-2xl rounded-lg p-4 border border-gray-800"
         style={{
           width: 1920 + 32, // + padding
           transform: `scale(${scale})`,
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          zIndex: 1,
         }}
       >
         {/* Main Display (Zone A) */}

@@ -1,6 +1,18 @@
 // Zone definitions
 export type ZoneId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
+// LED definitions
+export type LEDPattern = 'solid' | 'pulse' | 'breathe' | 'rainbow' | 'wave' | 'custom';
+
+export interface LEDSettings {
+  enabled: boolean;
+  color: string;
+  brightness: number; // 0-100
+  pattern: LEDPattern;
+  speed: number; // 1-10
+  customCSS?: string; // For AI-generated animations
+}
+
 export interface ZoneContent {
   A: string;  // 1920x1080 - Main screen
   B: string;  // 1920x360 - Full bottom (overrides C+D+E)
@@ -15,6 +27,7 @@ export interface Prototype {
   name: string;
   description?: string;
   zoneContent: ZoneContent;
+  ledSettings?: LEDSettings;
   thumbnail?: string;
   createdAt: string;
   updatedAt: string;

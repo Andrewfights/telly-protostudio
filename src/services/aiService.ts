@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import type { ZoneId } from '../types';
+import type { ZoneId, LEDSettings } from '../types';
 
 // Lazy initialize Gemini AI to avoid errors when API key is not set
 let ai: GoogleGenAI | null = null;
@@ -91,6 +91,68 @@ export async function generateZoneCode(zone: ZoneId, prompt: string, currentCode
     return code;
   } catch (error) {
     console.error("Error generating code:", error);
+    throw error;
+  }
+}
+
+const LED_SYSTEM_INSTRUCTION = `
+You are an expert at creating CSS animations for LED lighting effects.
+The Telly device has backlit LEDs that create an ambient glow effect behind the TV.
+
+Your task is to generate creative CSS animation values that can be used for the LED glow effect.
+The animation should be smooth, visually appealing, and create an immersive ambient lighting experience.
+
+Output format: Return ONLY a valid CSS animation shorthand value (e.g., "myAnimation 2s ease-in-out infinite").
+Also include the @keyframes definition on a separate line prefixed with "KEYFRAMES:".
+
+Example output:
+glowPulse 3s ease-in-out infinite
+KEYFRAMES: @keyframes glowPulse { 0%, 100% { opacity: 0.5; filter: blur(20px); } 50% { opacity: 1; filter: blur(40px); } }
+`;
+
+export async function generateLEDPattern(prompt: string, currentSettings: LEDSettings): Promise<{ animation: string; keyframes: string }> {
+  const client = getAI();
+
+  const fullPrompt = `
+    Current LED settings:
+    - Color: ${currentSettings.color}
+    - Brightness: ${currentSettings.brightness}%
+    - Speed preference: ${currentSettings.speed}/10
+
+    User request: ${prompt}
+
+    Generate a creative LED animation effect based on this request.
+  `;
+
+  try {
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: fullPrompt }]
+        }
+      ],
+      config: {
+        systemInstruction: LED_SYSTEM_INSTRUCTION,
+        temperature: 0.8,
+      }
+    });
+
+    const text = response.text || "";
+    const lines = text.trim().split('\n');
+
+    let animation = lines[0]?.replace(/```/g, '').trim() || 'ledCustom 2s ease-in-out infinite';
+    let keyframes = '';
+
+    const keyframesLine = lines.find(l => l.startsWith('KEYFRAMES:'));
+    if (keyframesLine) {
+      keyframes = keyframesLine.replace('KEYFRAMES:', '').trim();
+    }
+
+    return { animation, keyframes };
+  } catch (error) {
+    console.error("Error generating LED pattern:", error);
     throw error;
   }
 }
