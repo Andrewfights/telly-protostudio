@@ -65,13 +65,16 @@ const TellyDevice: React.FC<TellyDeviceProps> = ({ zoneContent, selectedZone, on
   };
 
   // Render bottom section based on zone priority: B > F > C+D+E
+  // Also show B or F when selected (even without content) for preview
   const renderBottomSection = () => {
-    if (hasZoneBContent) {
+    // Show Zone B if it has content OR if it's selected
+    if (hasZoneBContent || selectedZone === 'B') {
       // Zone B: Full Bottom Screen (overrides C+D+E+F)
       return renderIframe('B', 1920, 360);
     }
 
-    if (hasZoneFContent) {
+    // Show Zone F if it has content OR if it's selected
+    if (hasZoneFContent || selectedZone === 'F') {
       // Zone F: Combined C+D area (keeps E visible)
       return (
         <>
