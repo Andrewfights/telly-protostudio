@@ -10,10 +10,15 @@ async function checkBackend(): Promise<boolean> {
   if (backendAvailable !== null) return backendAvailable;
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const response = await fetch(`${API_BASE}/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(2000)
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
     backendAvailable = response.ok;
   } catch {
     backendAvailable = false;

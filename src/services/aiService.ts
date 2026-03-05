@@ -1,8 +1,19 @@
 import { GoogleGenAI } from "@google/genai";
 import type { ZoneId } from '../types';
 
-// Initialize Gemini AI
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Lazy initialize Gemini AI to avoid errors when API key is not set
+let ai: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!ai) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured. AI code generation is unavailable.');
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+}
 
 export interface GeneratedCode {
   html: string;
@@ -57,7 +68,8 @@ export async function generateZoneCode(zone: ZoneId, prompt: string, currentCode
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const client = getAI();
+    const response = await client.models.generateContent({
       model: model,
       contents: [
         {
