@@ -225,56 +225,94 @@ export async function generateWithThinking(
   currentCode?: string
 ): Promise<string> {
   const dim = ZONE_DIMENSIONS[zone];
+  let thinkingLog: string[] = [];
 
-  // Phase 1: Analyzing
-  onProgress({
-    phase: 'analyzing',
-    thinking: ['Understanding the request...', `Target: Zone ${zone} (${dim.width}x${dim.height})`],
-    currentStep: 'Analyzing requirements',
-    progress: 10
-  });
+  try {
+    // Phase 1: Analyzing
+    thinkingLog = ['Understanding the request...', `Target: Zone ${zone} (${dim.width}x${dim.height})`];
+    onProgress({
+      phase: 'analyzing',
+      thinking: [...thinkingLog],
+      currentStep: 'Analyzing requirements',
+      progress: 15
+    });
 
-  // Analyze the prompt
-  const analysis = await analyzePrompt(prompt, zone);
+    // Quick analysis (with timeout protection)
+    let analysis: PromptAnalysis;
+    try {
+      const analysisPromise = analyzePrompt(prompt, zone);
+      const timeoutPromise = new Promise<PromptAnalysis>((_, reject) =>
+        setTimeout(() => reject(new Error('Analysis timeout')), 8000)
+      );
+      analysis = await Promise.race([analysisPromise, timeoutPromise]);
+    } catch {
+      // If analysis fails or times out, use defaults
+      analysis = {
+        needsClarification: false,
+        questions: [],
+        thinking: ['Planning implementation...'],
+        plan: ['Generate UI components', 'Add interactivity', 'Style for TV display'],
+        confidence: 80
+      };
+    }
 
-  // Phase 2: Planning
-  onProgress({
-    phase: 'planning',
-    thinking: [...analysis.thinking],
-    currentStep: 'Creating implementation plan',
-    progress: 30
-  });
+    // Phase 2: Planning
+    thinkingLog = [...thinkingLog, '---', ...analysis.thinking];
+    onProgress({
+      phase: 'planning',
+      thinking: [...thinkingLog],
+      currentStep: 'Creating implementation plan',
+      progress: 35
+    });
 
-  await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
+    // Show plan
+    thinkingLog = [...thinkingLog, '---', 'Plan:', ...analysis.plan];
+    onProgress({
+      phase: 'planning',
+      thinking: [...thinkingLog],
+      currentStep: 'Plan ready',
+      progress: 50
+    });
 
-  // Show plan
-  onProgress({
-    phase: 'planning',
-    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan],
-    currentStep: 'Plan ready',
-    progress: 50
-  });
+    // Phase 3: Generating
+    thinkingLog = [...thinkingLog, '---', 'Generating code...'];
+    onProgress({
+      phase: 'generating',
+      thinking: [...thinkingLog],
+      currentStep: 'Writing HTML/CSS/JS',
+      progress: 65
+    });
 
-  // Phase 3: Generating
-  onProgress({
-    phase: 'generating',
-    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan, '---', 'Generating code...'],
-    currentStep: 'Writing HTML/CSS/JS',
-    progress: 70
-  });
+    // Generate the code (this is the main work)
+    const code = await generateZoneCode(zone, prompt, currentCode);
 
-  // Generate the code
-  const code = await generateZoneCode(zone, prompt, currentCode);
+    // Update progress as code is being finalized
+    onProgress({
+      phase: 'generating',
+      thinking: [...thinkingLog, 'Finalizing code...'],
+      currentStep: 'Adding remote control support',
+      progress: 90
+    });
 
-  // Phase 4: Complete
-  onProgress({
-    phase: 'complete',
-    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan, '---', 'Code generated successfully!'],
-    currentStep: 'Complete',
-    progress: 100
-  });
+    // Phase 4: Complete
+    onProgress({
+      phase: 'complete',
+      thinking: [...thinkingLog, 'Code generated successfully!'],
+      currentStep: 'Complete',
+      progress: 100
+    });
 
-  return code;
+    return code;
+  } catch (error) {
+    // On error, still update to complete state so UI doesn't hang
+    onProgress({
+      phase: 'complete',
+      thinking: [...thinkingLog, `Error: ${error}`],
+      currentStep: 'Error occurred',
+      progress: 100
+    });
+    throw error;
+  }
 }
 
 const ZONE_DIMENSIONS: Record<ZoneId, { width: number; height: number; description: string }> = {

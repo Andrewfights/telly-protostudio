@@ -516,11 +516,14 @@ export default function App() {
       }
       setIsDirty(true);
     } catch (error) {
+      console.error('Generation error:', error);
       setChatHistory(prev => [...prev, { role: 'ai', text: `Error: ${error}` }]);
+    } finally {
+      // Always reset all thinking/generating states
+      setIsGenerating(false);
       setShowThinking(false);
       setGenerationProgress(null);
-    } finally {
-      setIsGenerating(false);
+      setPromptAnalysis(null);
     }
   };
 
