@@ -257,7 +257,7 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
             </button>
           </div>
         </div>
-      )}}
+      )}
 
       {/* Saved Presets List - TV optimized */}
       {showLoadPresets && (

@@ -331,6 +331,165 @@ export async function generateMusic(prompt: string): Promise<MediaItem> {
   }
 }
 
+// Plan Mode Types
+export interface PlanStep {
+  id: string;
+  description: string;
+  zone?: ZoneId;
+  type: 'code' | 'design' | 'config' | 'info';
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+}
+
+export interface PlanResponse {
+  type: 'plan' | 'answer' | 'ascii' | 'clarification';
+  content: string;
+  steps?: PlanStep[];
+  ascii?: string;
+}
+
+const PLAN_MODE_SYSTEM_INSTRUCTION = `
+You are an expert UI/UX designer and developer assistant for Telly, a dual-screen smart TV device.
+You help users plan and design prototypes before implementation.
+
+The Telly device has these Zones:
+- Zone A (Main Screen): 1920x1080 - Primary content area
+- Zone B (Full Bottom): 1920x360 - Unified bottom experience (replaces C+D+E)
+- Zone C (Bottom Left): 1280x300 - Left widget area
+- Zone D (Bottom Right): 640x300 - Right widget/ad area
+- Zone E (News Ticker): 1920x60 - Scrolling ticker
+- Zone F (Combined C+D): 1920x300 - Unified bottom widget (keeps E visible)
+
+Your capabilities:
+1. **Planning**: Break down complex features into step-by-step implementation plans
+2. **ASCII Art**: Create ASCII mockups and wireframes of UI layouts
+3. **Design Advice**: Suggest layouts, colors, and UX patterns for TV interfaces
+4. **Q&A**: Answer questions about Telly development, TV UI best practices, etc.
+5. **Review**: Analyze existing designs and suggest improvements
+
+Response Format:
+- For PLANS: Start with "## Plan:" then list numbered steps. End with "Ready to implement?"
+- For ASCII: Wrap ASCII art in triple backticks with "ascii" tag
+- For ANSWERS: Provide clear, concise responses
+- For CLARIFICATIONS: Ask specific questions to understand requirements
+
+Always consider TV/remote optimization:
+- Large touch targets (56px minimum)
+- High contrast for readability at distance
+- D-pad navigation friendly
+- Focus states clearly visible
+`;
+
+/**
+ * Plan Mode: Conversational AI for planning, questions, and ASCII designs
+ */
+export async function generatePlanResponse(
+  prompt: string,
+  conversationHistory: Array<{ role: 'user' | 'ai'; text: string }>,
+  currentZoneContent?: ZoneContent
+): Promise<PlanResponse> {
+  const client = getAI();
+
+  // Build conversation context
+  const historyContext = conversationHistory
+    .slice(-10) // Last 10 messages for context
+    .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.text}`)
+    .join('\n');
+
+  const zoneContext = currentZoneContent
+    ? `Current prototype state:
+- Zone A: ${currentZoneContent.A ? 'Has content' : 'Empty'}
+- Zone B: ${currentZoneContent.B ? 'Has content' : 'Empty'}
+- Zone C: ${currentZoneContent.C ? 'Has content' : 'Empty'}
+- Zone D: ${currentZoneContent.D ? 'Has content' : 'Empty'}
+- Zone E: ${currentZoneContent.E ? 'Has content' : 'Empty'}
+- Zone F: ${currentZoneContent.F ? 'Has content' : 'Empty'}`
+    : '';
+
+  const fullPrompt = `
+${historyContext ? `Previous conversation:\n${historyContext}\n\n` : ''}
+${zoneContext ? `${zoneContext}\n\n` : ''}
+User request: ${prompt}
+
+Respond appropriately based on the request type (plan, ASCII design, question, etc.).
+`;
+
+  try {
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: fullPrompt }]
+        }
+      ],
+      config: {
+        systemInstruction: PLAN_MODE_SYSTEM_INSTRUCTION,
+        temperature: 0.7,
+      }
+    });
+
+    const text = response.text || "";
+
+    // Detect response type
+    let responseType: PlanResponse['type'] = 'answer';
+    let ascii: string | undefined;
+    let steps: PlanStep[] | undefined;
+
+    // Check for ASCII art
+    const asciiMatch = text.match(/```ascii([\s\S]*?)```/);
+    if (asciiMatch) {
+      responseType = 'ascii';
+      ascii = asciiMatch[1].trim();
+    }
+
+    // Check for plan
+    if (text.toLowerCase().includes('## plan:') || text.toLowerCase().includes('implementation plan')) {
+      responseType = 'plan';
+      // Extract steps from numbered list
+      const stepMatches = text.match(/\d+\.\s+([^\n]+)/g);
+      if (stepMatches) {
+        steps = stepMatches.map((step, index) => ({
+          id: `step-${index + 1}`,
+          description: step.replace(/^\d+\.\s+/, ''),
+          type: 'code' as const,
+          status: 'pending' as const,
+        }));
+      }
+    }
+
+    // Check for clarification question
+    if (text.includes('?') && (
+      text.toLowerCase().includes('would you like') ||
+      text.toLowerCase().includes('do you want') ||
+      text.toLowerCase().includes('should i') ||
+      text.toLowerCase().includes('can you clarify')
+    )) {
+      responseType = 'clarification';
+    }
+
+    return {
+      type: responseType,
+      content: text,
+      steps,
+      ascii,
+    };
+  } catch (error) {
+    console.error("Error in plan mode:", error);
+    throw error;
+  }
+}
+
+/**
+ * Execute a plan step - generates actual code for a specific step
+ */
+export async function executePlanStep(
+  step: PlanStep,
+  zone: ZoneId,
+  context: string
+): Promise<string> {
+  return generateZoneCode(zone, `${step.description}\n\nContext: ${context}`);
+}
+
 /**
  * Detect content type from prompt
  * Returns the type of content the user seems to be requesting

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked, Image, Video, Music, Upload, Maximize2, Monitor, ChevronDown, ChevronRight, Repeat, FolderOpen as FolderIcon, Tv, History, Grid3X3 } from 'lucide-react';
+import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked, Image, Video, Music, Upload, Maximize2, Monitor, ChevronDown, ChevronRight, Repeat, FolderOpen as FolderIcon, Tv, History, Grid3X3, MessageSquare } from 'lucide-react';
 import TellyDevice from './components/TellyDevice';
 import PrototypeLibrary from './components/PrototypeLibrary';
 import PrototypeDetails from './components/PrototypeDetails';
@@ -16,6 +16,7 @@ import VideoSourceModal from './components/VideoSourceModal';
 import VersionHistoryPanel from './components/VersionHistoryPanel';
 import VersionDiffModal from './components/VersionDiffModal';
 import StreamLayoutPanel from './components/StreamLayoutPanel';
+import PlanModePanel from './components/PlanModePanel';
 import { generateZoneCode, generateLEDPattern, generateImage, generateVideo, generateMusic } from './services/aiService';
 import { uploadFile } from './services/mediaService';
 import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/apiService';
@@ -76,6 +77,7 @@ export default function App() {
   const [showVersionDiff, setShowVersionDiff] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ v1: number; v2: number } | null>(null);
   const [showStreamPanel, setShowStreamPanel] = useState(false);
+  const [showPlanMode, setShowPlanMode] = useState(false);
 
   // Media/content options
   const [loopMedia, setLoopMedia] = useState(true);
@@ -966,6 +968,13 @@ export default function App() {
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
+                  <button
+                    onClick={() => setShowPlanMode(true)}
+                    className="w-8 h-8 rounded flex items-center justify-center transition-all bg-gradient-to-r from-cyan-600/30 to-purple-600/30 text-cyan-400 hover:from-cyan-600/50 hover:to-purple-600/50"
+                    title="Plan Mode - AI Assistant"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -1251,6 +1260,18 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Plan Mode Panel */}
+      <PlanModePanel
+        isOpen={showPlanMode}
+        onClose={() => setShowPlanMode(false)}
+        zoneContent={zoneContent}
+        selectedZone={selectedZone}
+        onApplyCode={(zone, code) => {
+          setZoneContent(prev => ({ ...prev, [zone]: code }));
+          setIsDirty(true);
+        }}
+      />
 
       {/* Fullscreen Preview with Remote */}
       {showFullscreen && (
