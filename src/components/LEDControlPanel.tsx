@@ -35,9 +35,9 @@ const LEDControlPanel: React.FC<LEDControlPanelProps> = ({
   };
 
   return (
-    <div className="p-4 border-b border-white/10">
+    <div className="px-3 pb-2">
       {/* Header with toggle */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Lightbulb className={`w-4 h-4 ${settings.enabled ? 'text-yellow-400' : 'text-gray-500'}`} />
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">

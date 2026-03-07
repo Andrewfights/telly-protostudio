@@ -65,9 +65,12 @@ router.get('/', (req: Request, res: Response) => {
       name: row.name,
       description: row.description,
       zoneContent: JSON.parse(row.zone_content),
+      ledSettings: row.led_settings ? JSON.parse(row.led_settings) : null,
       thumbnail: row.thumbnail,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      currentVersion: row.current_version || 1,
+      totalVersions: row.total_versions || 1,
       isFavorite: row.is_favorite === 1
     }));
 
@@ -109,9 +112,12 @@ router.get('/:id', (req: Request, res: Response) => {
         name: row.name,
         description: row.description,
         zoneContent: JSON.parse(row.zone_content),
+        ledSettings: row.led_settings ? JSON.parse(row.led_settings) : null,
         thumbnail: row.thumbnail,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        currentVersion: row.current_version || 1,
+        totalVersions: row.total_versions || 1,
         isFavorite: row.is_favorite === 1
       }
     });
@@ -124,7 +130,7 @@ router.get('/:id', (req: Request, res: Response) => {
 // Create prototype
 router.post('/', (req: Request, res: Response) => {
   try {
-    const { name, description, zoneContent, thumbnail } = req.body;
+    const { name, description, zoneContent, ledSettings, thumbnail, commitMessage } = req.body;
 
     if (!name || !zoneContent) {
       return res.status(400).json({
@@ -133,12 +139,39 @@ router.post('/', (req: Request, res: Response) => {
     }
 
     const id = uuidv4();
+    const versionId = uuidv4();
     const now = new Date().toISOString();
 
+    // Create the prototype
     db.prepare(`
-      INSERT INTO prototypes (id, name, description, zone_content, thumbnail, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, name, description || null, JSON.stringify(zoneContent), thumbnail || null, now, now);
+      INSERT INTO prototypes (id, name, description, zone_content, led_settings, thumbnail, created_at, updated_at, current_version, total_versions)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1)
+    `).run(
+      id,
+      name,
+      description || null,
+      JSON.stringify(zoneContent),
+      ledSettings ? JSON.stringify(ledSettings) : null,
+      thumbnail || null,
+      now,
+      now
+    );
+
+    // Create initial version (version 1)
+    db.prepare(`
+      INSERT INTO prototype_versions (id, prototype_id, version_number, name, description, zone_content, led_settings, thumbnail, commit_message, created_at)
+      VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      versionId,
+      id,
+      name,
+      description || null,
+      JSON.stringify(zoneContent),
+      ledSettings ? JSON.stringify(ledSettings) : null,
+      thumbnail || null,
+      commitMessage || 'Initial version',
+      now
+    );
 
     res.status(201).json({
       data: {
@@ -146,9 +179,12 @@ router.post('/', (req: Request, res: Response) => {
         name,
         description,
         zoneContent,
+        ledSettings: ledSettings || null,
         thumbnail,
         createdAt: now,
         updatedAt: now,
+        currentVersion: 1,
+        totalVersions: 1,
         isFavorite: false
       }
     });
@@ -162,20 +198,22 @@ router.post('/', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, zoneContent, thumbnail } = req.body;
+    const { name, description, zoneContent, ledSettings, thumbnail, createVersion, commitMessage } = req.body;
 
-    const existing = db.prepare('SELECT id FROM prototypes WHERE id = ? AND is_deleted = 0').get(id);
+    const existing = db.prepare('SELECT * FROM prototypes WHERE id = ? AND is_deleted = 0').get(id) as any;
     if (!existing) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Prototype not found' } });
     }
 
     const now = new Date().toISOString();
 
+    // Update the prototype
     db.prepare(`
       UPDATE prototypes
       SET name = COALESCE(?, name),
           description = COALESCE(?, description),
           zone_content = COALESCE(?, zone_content),
+          led_settings = COALESCE(?, led_settings),
           thumbnail = COALESCE(?, thumbnail),
           updated_at = ?
       WHERE id = ?
@@ -183,10 +221,42 @@ router.put('/:id', (req: Request, res: Response) => {
       name || null,
       description !== undefined ? description : null,
       zoneContent ? JSON.stringify(zoneContent) : null,
+      ledSettings !== undefined ? (ledSettings ? JSON.stringify(ledSettings) : null) : null,
       thumbnail !== undefined ? thumbnail : null,
       now,
       id
     );
+
+    // If createVersion is true, create a new version snapshot
+    if (createVersion) {
+      const currentVersion = existing.total_versions || 1;
+      const newVersion = currentVersion + 1;
+      const versionId = uuidv4();
+
+      // Get the updated prototype data
+      const updated = db.prepare('SELECT * FROM prototypes WHERE id = ?').get(id) as any;
+
+      db.prepare(`
+        INSERT INTO prototype_versions (id, prototype_id, version_number, name, description, zone_content, led_settings, thumbnail, commit_message, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        versionId,
+        id,
+        newVersion,
+        updated.name,
+        updated.description,
+        updated.zone_content,
+        updated.led_settings,
+        updated.thumbnail,
+        commitMessage || null,
+        now
+      );
+
+      // Update version tracking
+      db.prepare(`
+        UPDATE prototypes SET current_version = ?, total_versions = ? WHERE id = ?
+      `).run(newVersion, newVersion, id);
+    }
 
     // Fetch updated record
     const row = db.prepare(`
@@ -203,9 +273,12 @@ router.put('/:id', (req: Request, res: Response) => {
         name: row.name,
         description: row.description,
         zoneContent: JSON.parse(row.zone_content),
+        ledSettings: row.led_settings ? JSON.parse(row.led_settings) : null,
         thumbnail: row.thumbnail,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        currentVersion: row.current_version || 1,
+        totalVersions: row.total_versions || 1,
         isFavorite: row.is_favorite === 1
       }
     });

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import type { ZoneId, LEDSettings } from '../types';
+import type { ZoneId, LEDSettings, MediaItem } from '../types';
+import { addMedia } from './mediaService';
 
 // Lazy initialize Gemini AI to avoid errors when API key is not set
 let ai: GoogleGenAI | null = null;
@@ -155,4 +156,223 @@ export async function generateLEDPattern(prompt: string, currentSettings: LEDSet
     console.error("Error generating LED pattern:", error);
     throw error;
   }
+}
+
+// Content Generation Types
+export type ContentGenerationType = 'image' | 'video' | 'music';
+
+export interface GeneratedContent {
+  type: ContentGenerationType;
+  url: string;
+  prompt: string;
+  source: string;
+}
+
+/**
+ * Generate an image using Nano Banana 2 (Google's image generation model)
+ * Falls back to placeholder if API unavailable
+ */
+export async function generateImage(prompt: string): Promise<MediaItem> {
+  const client = getAI();
+
+  try {
+    // Using Gemini's image generation capability
+    const response = await client.models.generateContent({
+      model: "gemini-2.0-flash-exp-image-generation",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }]
+        }
+      ],
+      config: {
+        responseModalities: ["image", "text"],
+      }
+    });
+
+    // Extract image from response
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('image/'));
+
+    if (imagePart?.inlineData) {
+      const { mimeType, data } = imagePart.inlineData;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+
+      return addMedia({
+        type: 'image',
+        name: `Generated: ${prompt.substring(0, 30)}...`,
+        url: dataUrl,
+        generatedWith: 'nanobanana2',
+        prompt,
+      });
+    }
+
+    throw new Error('No image generated');
+  } catch (error) {
+    console.error("Error generating image:", error);
+    // Return placeholder for demo purposes
+    return addMedia({
+      type: 'image',
+      name: `Generated: ${prompt.substring(0, 30)}...`,
+      url: `https://placehold.co/1920x1080/1e293b/white?text=${encodeURIComponent(prompt.substring(0, 20))}`,
+      generatedWith: 'nanobanana2',
+      prompt,
+    });
+  }
+}
+
+/**
+ * Generate a video using Veo 3 (Google's video generation model)
+ * Falls back to placeholder if API unavailable
+ */
+export async function generateVideo(prompt: string): Promise<MediaItem> {
+  const client = getAI();
+
+  try {
+    // Veo 3 video generation (when available)
+    // Note: This is the intended API structure - actual implementation
+    // depends on Google's Veo 3 API availability
+    const response = await client.models.generateContent({
+      model: "veo-002",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `Generate a video: ${prompt}` }]
+        }
+      ],
+      config: {
+        responseModalities: ["video"],
+      }
+    });
+
+    // Extract video from response
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    const videoPart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('video/'));
+
+    if (videoPart?.inlineData) {
+      const { mimeType, data } = videoPart.inlineData;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+
+      return addMedia({
+        type: 'video',
+        name: `Generated: ${prompt.substring(0, 30)}...`,
+        url: dataUrl,
+        generatedWith: 'veo3',
+        prompt,
+      });
+    }
+
+    throw new Error('No video generated');
+  } catch (error) {
+    console.error("Error generating video:", error);
+    // Return a message about Veo 3 availability
+    return addMedia({
+      type: 'video',
+      name: `Veo 3: ${prompt.substring(0, 30)}...`,
+      url: '', // Video would be generated when API is available
+      generatedWith: 'veo3',
+      prompt,
+    });
+  }
+}
+
+/**
+ * Generate music/audio using MusicFX
+ * Falls back to placeholder if API unavailable
+ */
+export async function generateMusic(prompt: string): Promise<MediaItem> {
+  const client = getAI();
+
+  try {
+    // MusicFX audio generation (when available)
+    // Note: This is the intended API structure - actual implementation
+    // depends on Google's MusicFX API availability through Gemini
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `Generate music audio for: ${prompt}` }]
+        }
+      ],
+      config: {
+        responseModalities: ["audio"],
+      }
+    });
+
+    // Extract audio from response
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    const audioPart = parts.find((p: { inlineData?: { mimeType: string; data: string } }) => p.inlineData?.mimeType?.startsWith('audio/'));
+
+    if (audioPart?.inlineData) {
+      const { mimeType, data } = audioPart.inlineData;
+      const dataUrl = `data:${mimeType};base64,${data}`;
+
+      return addMedia({
+        type: 'audio',
+        name: `Generated: ${prompt.substring(0, 30)}...`,
+        url: dataUrl,
+        generatedWith: 'musicfx',
+        prompt,
+      });
+    }
+
+    throw new Error('No audio generated');
+  } catch (error) {
+    console.error("Error generating music:", error);
+    // Return placeholder for demo purposes
+    return addMedia({
+      type: 'audio',
+      name: `MusicFX: ${prompt.substring(0, 30)}...`,
+      url: '', // Audio would be generated when API is available
+      generatedWith: 'musicfx',
+      prompt,
+    });
+  }
+}
+
+/**
+ * Detect content type from prompt
+ * Returns the type of content the user seems to be requesting
+ */
+export function detectContentType(prompt: string): ContentGenerationType | 'code' {
+  const lowerPrompt = prompt.toLowerCase();
+
+  // Video keywords
+  if (
+    lowerPrompt.includes('video') ||
+    lowerPrompt.includes('veo') ||
+    lowerPrompt.includes('animation') ||
+    lowerPrompt.includes('clip') ||
+    lowerPrompt.includes('movie')
+  ) {
+    return 'video';
+  }
+
+  // Image keywords
+  if (
+    lowerPrompt.includes('image') ||
+    lowerPrompt.includes('picture') ||
+    lowerPrompt.includes('photo') ||
+    lowerPrompt.includes('nano banana') ||
+    lowerPrompt.includes('generate an image') ||
+    lowerPrompt.includes('create an image')
+  ) {
+    return 'image';
+  }
+
+  // Music keywords
+  if (
+    lowerPrompt.includes('music') ||
+    lowerPrompt.includes('audio') ||
+    lowerPrompt.includes('sound') ||
+    lowerPrompt.includes('musicfx') ||
+    lowerPrompt.includes('song') ||
+    lowerPrompt.includes('melody')
+  ) {
+    return 'music';
+  }
+
+  // Default to code generation
+  return 'code';
 }

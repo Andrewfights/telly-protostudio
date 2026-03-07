@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { initializeDatabase } from './db/database.js';
 import prototypesRouter from './routes/prototypes.js';
+import versionsRouter from './routes/versions.js';
 import favoritesRouter from './routes/favorites.js';
 import shareRouter from './routes/share.js';
 import zoneTemplatesRouter from './routes/zone-templates.js';
@@ -18,6 +19,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // Routes
 app.use('/api/prototypes', prototypesRouter);
+app.use('/api/prototypes', versionsRouter);  // Version history endpoints nested under prototypes
 app.use('/api/favorites', favoritesRouter);
 app.use('/api/share', shareRouter);
 app.use('/api/zone-templates', zoneTemplatesRouter);

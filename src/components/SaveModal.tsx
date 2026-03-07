@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { X, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Save, History, GitBranch } from 'lucide-react';
 
 interface SaveModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, description: string) => Promise<void>;
+  onSave: (name: string, description: string, options: { createVersion: boolean; commitMessage: string }) => Promise<void>;
   initialName?: string;
   initialDescription?: string;
   isUpdate?: boolean;
+  currentVersion?: number;
+  totalVersions?: number;
 }
 
 const SaveModal: React.FC<SaveModalProps> = ({
@@ -17,11 +19,25 @@ const SaveModal: React.FC<SaveModalProps> = ({
   initialName = '',
   initialDescription = '',
   isUpdate = false,
+  currentVersion = 1,
+  totalVersions = 1,
 }) => {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
+  const [createVersion, setCreateVersion] = useState(true);
+  const [commitMessage, setCommitMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Reset form when opening with new initial values
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialName);
+      setDescription(initialDescription);
+      setCommitMessage('');
+      setError('');
+    }
+  }, [isOpen, initialName, initialDescription]);
 
   if (!isOpen) return null;
 
@@ -35,7 +51,10 @@ const SaveModal: React.FC<SaveModalProps> = ({
     setError('');
 
     try {
-      await onSave(name.trim(), description.trim());
+      await onSave(name.trim(), description.trim(), {
+        createVersion: isUpdate && createVersion,
+        commitMessage: commitMessage.trim(),
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
@@ -60,6 +79,21 @@ const SaveModal: React.FC<SaveModalProps> = ({
           </button>
         </div>
 
+        {/* Version info for updates */}
+        {isUpdate && (
+          <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg flex items-center space-x-3">
+            <History className="w-5 h-5 text-blue-400" />
+            <div>
+              <p className="text-sm text-blue-300">
+                Current: Version {currentVersion} of {totalVersions}
+              </p>
+              <p className="text-xs text-blue-400/70">
+                {createVersion ? `Will create version ${totalVersions + 1}` : 'Will update in place'}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-2">
@@ -82,10 +116,50 @@ const SaveModal: React.FC<SaveModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description..."
-              rows={3}
+              rows={2}
               className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
             />
           </div>
+
+          {/* Version control options (only for updates) */}
+          {isUpdate && (
+            <>
+              <div className="border-t border-white/10 pt-4">
+                <label className="flex items-center space-x-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={createVersion}
+                    onChange={(e) => setCreateVersion(e.target.checked)}
+                    className="w-5 h-5 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-blue-500/50"
+                  />
+                  <div className="flex items-center space-x-2">
+                    <GitBranch className="w-4 h-4 text-gray-400 group-hover:text-blue-400 transition-colors" />
+                    <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                      Save as new version
+                    </span>
+                  </div>
+                </label>
+                <p className="text-xs text-gray-500 mt-1 ml-8">
+                  Creates a snapshot you can rollback to later
+                </p>
+              </div>
+
+              {createVersion && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Version Note (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                    placeholder="e.g., Updated header design, fixed ticker..."
+                    className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           {error && (
             <p className="text-red-400 text-sm">{error}</p>
