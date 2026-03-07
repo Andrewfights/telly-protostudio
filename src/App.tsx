@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked, Image, Video, Music, Upload, Maximize2, Monitor, ChevronDown, ChevronRight, Repeat, FolderOpen as FolderIcon, Tv, History, Grid3X3, MessageSquare } from 'lucide-react';
+import { Send, Download, Code, Sparkles, RefreshCw, Layers, Library, Save, Share2, Settings, FolderOpen, BookMarked, Image, Video, Music, Upload, Maximize2, Monitor, ChevronDown, ChevronRight, Repeat, FolderOpen as FolderIcon, Tv, History, Grid3X3, MessageSquare, Lock } from 'lucide-react';
 import TellyDevice from './components/TellyDevice';
 import PrototypeLibrary from './components/PrototypeLibrary';
 import PrototypeDetails from './components/PrototypeDetails';
@@ -89,6 +89,9 @@ export default function App() {
   const [promptAnalysis, setPromptAnalysis] = useState<PromptAnalysis | null>(null);
   const [pendingQuestions, setPendingQuestions] = useState<string[] | null>(null);
   const [askModeEnabled, setAskModeEnabled] = useState(true); // Ask Mode on by default
+
+  // Zone D lock for ads (project-wide setting)
+  const [zoneDLocked, setZoneDLocked] = useState(false);
 
   // Media/content options
   const [loopMedia, setLoopMedia] = useState(true);
@@ -984,20 +987,29 @@ export default function App() {
                 <div className="flex-1 flex space-x-1">
                   {(['A', 'B', 'C', 'D', 'E', 'F'] as ZoneId[]).map((zone) => {
                     const disabled = isZoneDisabled(zone);
+                    const isZoneDLocked = zone === 'D' && zoneDLocked;
                     return (
                       <button
                         key={zone}
                         onClick={() => !disabled && setSelectedZone(zone)}
                         disabled={disabled}
-                        className={`flex-1 h-8 rounded text-xs font-bold transition-all ${
+                        className={`flex-1 h-8 rounded text-xs font-bold transition-all relative ${
                           selectedZone === zone
                             ? 'bg-blue-600 text-white'
+                            : isZoneDLocked
+                            ? 'bg-yellow-600/30 text-yellow-400 border border-yellow-500/50'
                             : disabled
                             ? 'bg-white/5 text-gray-700 cursor-not-allowed'
                             : 'bg-white/10 text-gray-400 hover:bg-white/20'
                         }`}
+                        title={isZoneDLocked ? 'Zone D locked for ads' : undefined}
                       >
-                        {zone}
+                        {isZoneDLocked ? (
+                          <span className="flex items-center justify-center">
+                            <Lock className="w-3 h-3 mr-0.5" />
+                            {zone}
+                          </span>
+                        ) : zone}
                       </button>
                     );
                   })}
@@ -1366,6 +1378,8 @@ export default function App() {
               currentZoneContent={zoneContent[selectedZone]}
               onApply={handleApplyStreamLayout}
               onClose={() => setShowStreamPanel(false)}
+              zoneDLocked={zoneDLocked}
+              onZoneDLockChange={setZoneDLocked}
             />
           </div>
         </div>

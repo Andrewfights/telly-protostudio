@@ -1,4 +1,14 @@
-import type { StreamLayout, StreamLayoutPreset, StreamCell, VideoSourceConfig } from '../types';
+import type { StreamLayout, StreamLayoutPreset, StreamCell, VideoSourceConfig, ZoneId } from '../types';
+
+// Zone dimensions
+const ZONE_DIMENSIONS: Record<ZoneId, { width: number; height: number }> = {
+  A: { width: 1920, height: 1080 },
+  B: { width: 1920, height: 360 },
+  C: { width: 1280, height: 300 },
+  D: { width: 640, height: 300 },
+  E: { width: 1920, height: 60 },
+  F: { width: 1920, height: 300 },
+};
 
 // Get preset configuration (rows and cols)
 export function getPresetConfig(preset: StreamLayoutPreset): { rows: number; cols: number } {
@@ -106,9 +116,10 @@ export function generateCellEmbed(config: VideoSourceConfig): string {
 }
 
 // Generate the full grid HTML with all cells
-export function generateStreamGridHTML(layout: StreamLayout): string {
+export function generateStreamGridHTML(layout: StreamLayout, targetZone: ZoneId = 'A'): string {
   const { rows, cols, cells, globalOptions } = layout;
   const { gap } = globalOptions;
+  const zoneDim = ZONE_DIMENSIONS[targetZone];
 
   // Generate cell HTML with data attributes for audio control
   const cellsHTML = cells.map((cell, index) => {
@@ -138,7 +149,7 @@ export function generateStreamGridHTML(layout: StreamLayout): string {
 
   // Full HTML document with audio control and cell maximize
   return `<!DOCTYPE html>
-<html data-stream-layout="true">
+<html data-stream-layout="true" data-zone="${targetZone}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -146,8 +157,8 @@ export function generateStreamGridHTML(layout: StreamLayout): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      width: 100%;
-      height: 100%;
+      width: ${zoneDim.width}px;
+      height: ${zoneDim.height}px;
       background: #0a0a0a;
       overflow: hidden;
     }

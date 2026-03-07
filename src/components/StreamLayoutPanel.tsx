@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Grid3X3, Play, X, Plus, Tv, Youtube, Link, Check, Monitor, PanelBottom, Save, FolderOpen, Trash2 } from 'lucide-react';
+import { Grid3X3, Play, X, Plus, Tv, Youtube, Link, Check, Monitor, PanelBottom, Save, FolderOpen, Trash2, TicketMinus, Lock, Unlock } from 'lucide-react';
 import type { StreamLayout, StreamLayoutPreset, StreamCell, VideoSourceConfig, ZoneId } from '../types';
 import {
   createDefaultStreamLayout,
@@ -18,6 +18,7 @@ interface SavedStreamPreset {
   name: string;
   layout: StreamLayout;
   screenPosition: 'top' | 'bottom';
+  showTicker?: boolean;
   createdAt: string;
 }
 
@@ -26,6 +27,8 @@ interface StreamLayoutPanelProps {
   currentZoneContent?: string;
   onApply: (html: string, zone: ZoneId) => void;
   onClose: () => void;
+  zoneDLocked?: boolean;
+  onZoneDLockChange?: (locked: boolean) => void;
 }
 
 type ScreenPosition = 'top' | 'bottom';
@@ -53,6 +56,8 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
   currentZoneContent,
   onApply,
   onClose,
+  zoneDLocked = false,
+  onZoneDLockChange,
 }) => {
   const [layout, setLayout] = useState<StreamLayout>(createDefaultStreamLayout('2x2'));
   const [selectedCellId, setSelectedCellId] = useState<number | null>(null);
@@ -63,6 +68,7 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
   const [presetName, setPresetName] = useState('');
   const [showLoadPresets, setShowLoadPresets] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showTicker, setShowTicker] = useState(true); // Ticker on by default for bottom screen
 
   // Load saved presets on mount
   useEffect(() => {
@@ -174,12 +180,27 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
     }));
   }, [selectedCellId]);
 
+  // Determine target zone based on settings
+  const getTargetZone = useCallback((): ZoneId => {
+    if (screenPosition === 'top') {
+      return 'A';
+    }
+    // Bottom screen options
+    if (zoneDLocked) {
+      return 'C'; // Grid only in Zone C when D is locked for ads
+    }
+    if (showTicker) {
+      return 'F'; // Zone F keeps ticker visible (Zone E)
+    }
+    return 'B'; // Full bottom screen, no ticker
+  }, [screenPosition, zoneDLocked, showTicker]);
+
   // Apply layout
   const handleApply = useCallback(() => {
-    const html = generateStreamGridHTML(layout);
-    const targetZone: ZoneId = screenPosition === 'top' ? 'A' : 'B';
+    const targetZone = getTargetZone();
+    const html = generateStreamGridHTML(layout, targetZone);
     onApply(html, targetZone);
-  }, [layout, onApply, screenPosition]);
+  }, [layout, onApply, getTargetZone]);
 
   const selectedCell = selectedCellId !== null
     ? layout.cells.find((c) => c.id === selectedCellId)
@@ -326,9 +347,84 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
             </button>
           </div>
           <p className="text-sm text-gray-500 mt-3">
-            {screenPosition === 'top' ? 'Zone A (1920x1080) - Main display area' : 'Zone B (1920x360) - Bottom panel'}
+            {screenPosition === 'top'
+              ? 'Zone A (1920x1080) - Main display area'
+              : zoneDLocked
+                ? `Zone C (1280x300) - Grid area${showTicker ? ' + Zone E ticker' : ''}`
+                : showTicker
+                  ? 'Zone F (1920x300) - Bottom panel with ticker'
+                  : 'Zone B (1920x360) - Full bottom panel'}
           </p>
         </div>
+
+        {/* Bottom Screen Options - Ticker & Zone D Lock */}
+        {screenPosition === 'bottom' && (
+          <div className="space-y-3">
+            <label className="block text-base text-gray-400 mb-2">Bottom Screen Options</label>
+
+            {/* Ticker Toggle */}
+            <button
+              onClick={() => setShowTicker(!showTicker)}
+              className={`w-full flex items-center justify-between p-5 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                showTicker
+                  ? 'bg-green-600/20 border-2 border-green-500/30'
+                  : 'bg-white/5 border-2 border-white/10'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <TicketMinus className={`w-6 h-6 ${showTicker ? 'text-green-400' : 'text-gray-500'}`} />
+                <div className="text-left">
+                  <span className={`text-base font-semibold ${showTicker ? 'text-green-400' : 'text-gray-400'}`}>
+                    News Ticker (Zone E)
+                  </span>
+                  <p className="text-sm text-gray-500">60px ticker bar at the bottom</p>
+                </div>
+              </div>
+              <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
+                showTicker ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'
+              }`}>
+                {showTicker ? 'ON' : 'OFF'}
+              </div>
+            </button>
+
+            {/* Zone D Lock Toggle */}
+            <button
+              onClick={() => onZoneDLockChange?.(!zoneDLocked)}
+              className={`w-full flex items-center justify-between p-5 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
+                zoneDLocked
+                  ? 'bg-yellow-600/20 border-2 border-yellow-500/30'
+                  : 'bg-white/5 border-2 border-white/10'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                {zoneDLocked ? (
+                  <Lock className="w-6 h-6 text-yellow-400" />
+                ) : (
+                  <Unlock className="w-6 h-6 text-gray-500" />
+                )}
+                <div className="text-left">
+                  <span className={`text-base font-semibold ${zoneDLocked ? 'text-yellow-400' : 'text-gray-400'}`}>
+                    Lock Zone D for Ads
+                  </span>
+                  <p className="text-sm text-gray-500">Reserve 640px for ad unit (project-wide)</p>
+                </div>
+              </div>
+              <div className={`px-3 py-1.5 rounded-lg text-sm font-bold ${
+                zoneDLocked ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-400'
+              }`}>
+                {zoneDLocked ? 'LOCKED' : 'UNLOCKED'}
+              </div>
+            </button>
+
+            {zoneDLocked && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+                <p className="text-sm text-yellow-400">
+                  Grid layout will only apply to Zone C (1280x300). Zone D remains available for your ad content.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Preset Selector - TV optimized */}
         <div>
@@ -489,7 +585,15 @@ const StreamLayoutPanel: React.FC<StreamLayoutPanelProps> = ({
           className="w-full flex items-center justify-center space-x-3 px-5 py-5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl text-white text-lg font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#0d0d0d]"
         >
           <Grid3X3 className="w-6 h-6" />
-          <span>Apply to {screenPosition === 'top' ? 'Top Screen (Zone A)' : 'Bottom Screen (Zone B)'}</span>
+          <span>
+            Apply to {screenPosition === 'top'
+              ? 'Top Screen (Zone A)'
+              : zoneDLocked
+                ? 'Zone C (Grid Area)'
+                : showTicker
+                  ? 'Zone F (With Ticker)'
+                  : 'Zone B (Full Bottom)'}
+          </span>
         </button>
       </div>
 
