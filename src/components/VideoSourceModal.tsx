@@ -116,58 +116,58 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1a1a] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div className="bg-[#1a1a1a] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Add Video Source</h2>
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="text-xl font-semibold text-white">Add Video Source</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-3 hover:bg-white/10 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
-            <X className="w-5 h-5 text-gray-400" />
+            <X className="w-6 h-6 text-gray-400" />
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - TV optimized with larger touch targets */}
         <div className="flex border-b border-white/10">
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`flex-1 flex items-center justify-center space-x-2 py-3 transition-colors ${
+              className={`flex-1 flex items-center justify-center space-x-3 py-5 text-lg transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-500 ${
                 activeTab === id
-                  ? 'bg-white/10 text-white border-b-2 border-blue-500'
+                  ? 'bg-white/10 text-white border-b-3 border-blue-500'
                   : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`}
             >
-              <Icon className="w-4 h-4" />
-              <span>{label}</span>
+              <Icon className="w-6 h-6" />
+              <span className="font-medium">{label}</span>
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-5">
           {/* Curated Tab */}
           {activeTab === 'curated' && (
-            <div className="space-y-4">
-              {/* Search */}
+            <div className="space-y-5">
+              {/* Search - TV optimized */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search content..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full pl-14 pr-5 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
                 />
               </div>
 
-              {/* Category filters */}
-              <div className="flex flex-wrap gap-2">
+              {/* Category filters - TV optimized with larger buttons */}
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setSelectedCategory('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                  className={`px-5 py-3 rounded-xl text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                     selectedCategory === 'all'
                       ? 'bg-blue-600 text-white'
                       : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -179,7 +179,7 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    className={`px-5 py-3 rounded-xl text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                       selectedCategory === cat.id
                         ? 'bg-blue-600 text-white'
                         : 'bg-white/10 text-gray-400 hover:bg-white/20'
@@ -190,13 +190,13 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                 ))}
               </div>
 
-              {/* Content grid */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Content grid - TV optimized with larger cards */}
+              <div className="grid grid-cols-2 gap-4">
                 {filteredContent.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => handleCuratedSelect(item)}
-                    className="group relative bg-white/5 rounded-lg overflow-hidden hover:bg-white/10 transition-colors text-left"
+                    className="group relative bg-white/5 rounded-xl overflow-hidden hover:bg-white/10 transition-all text-left focus:outline-none focus:ring-3 focus:ring-cyan-500 focus:scale-[1.02]"
                   >
                     {/* Thumbnail */}
                     <div className="aspect-video bg-black relative">
@@ -209,30 +209,30 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           {item.type === 'youtube' ? (
-                            <Youtube className="w-8 h-8 text-red-500" />
+                            <Youtube className="w-12 h-12 text-red-500" />
                           ) : (
-                            <Tv className="w-8 h-8 text-blue-500" />
+                            <Tv className="w-12 h-12 text-blue-500" />
                           )}
                         </div>
                       )}
                       {/* Play overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Play className="w-10 h-10 text-white" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity">
+                        <Play className="w-14 h-14 text-white" />
                       </div>
                       {/* Type badge */}
-                      <div className="absolute top-2 right-2">
+                      <div className="absolute top-3 right-3">
                         {item.type === 'youtube' ? (
-                          <span className="bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">YT</span>
+                          <span className="bg-red-600 text-white text-sm px-2.5 py-1 rounded-lg font-medium">YT</span>
                         ) : (
-                          <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded">Pluto</span>
+                          <span className="bg-blue-600 text-white text-sm px-2.5 py-1 rounded-lg font-medium">Pluto</span>
                         )}
                       </div>
                     </div>
                     {/* Info */}
-                    <div className="p-2">
-                      <p className="text-sm text-white font-medium truncate">{item.name}</p>
+                    <div className="p-4">
+                      <p className="text-base text-white font-semibold truncate">{item.name}</p>
                       {item.description && (
-                        <p className="text-xs text-gray-500 truncate">{item.description}</p>
+                        <p className="text-sm text-gray-500 truncate mt-1">{item.description}</p>
                       )}
                     </div>
                   </button>
@@ -240,18 +240,18 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
               </div>
 
               {filteredContent.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No content found</p>
+                <div className="text-center py-12 text-gray-500">
+                  <p className="text-lg">No content found</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* YouTube Tab */}
+          {/* YouTube Tab - TV optimized */}
           {activeTab === 'youtube' && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm text-gray-400 mb-2">
+                <label className="block text-base text-gray-400 mb-3">
                   YouTube URL or Video ID
                 </label>
                 <input
@@ -259,13 +259,13 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                   placeholder="https://youtube.com/watch?v=... or video ID"
                   value={youtubeUrl}
                   onChange={(e) => setYoutubeUrl(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-5 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
                 />
               </div>
 
               {/* Preview */}
               {extractYoutubeId(youtubeUrl) && (
-                <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <div className="aspect-video bg-black rounded-xl overflow-hidden">
                   <img
                     src={`https://img.youtube.com/vi/${extractYoutubeId(youtubeUrl)}/hqdefault.jpg`}
                     alt="Video thumbnail"
@@ -274,59 +274,59 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                 </div>
               )}
 
-              {/* Options */}
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex items-center space-x-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+              {/* Options - TV optimized with larger touch targets */}
+              <div className="grid grid-cols-2 gap-4">
+                <label className="flex items-center space-x-4 p-5 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 focus-within:ring-2 focus-within:ring-cyan-500 transition-colors">
                   <input
                     type="checkbox"
                     checked={autoplay}
                     onChange={(e) => setAutoplay(e.target.checked)}
-                    className="rounded"
+                    className="w-6 h-6 rounded-lg border-2 border-gray-600 text-purple-600 focus:ring-purple-500"
                   />
-                  <span className="text-sm text-gray-300">Autoplay</span>
+                  <span className="text-base text-gray-300 font-medium">Autoplay</span>
                 </label>
-                <label className="flex items-center space-x-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+                <label className="flex items-center space-x-4 p-5 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 focus-within:ring-2 focus-within:ring-cyan-500 transition-colors">
                   <input
                     type="checkbox"
                     checked={muted}
                     onChange={(e) => setMuted(e.target.checked)}
-                    className="rounded"
+                    className="w-6 h-6 rounded-lg border-2 border-gray-600 text-purple-600 focus:ring-purple-500"
                   />
-                  <span className="text-sm text-gray-300">Start Muted</span>
+                  <span className="text-base text-gray-300 font-medium">Start Muted</span>
                 </label>
-                <label className="flex items-center space-x-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+                <label className="flex items-center space-x-4 p-5 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 focus-within:ring-2 focus-within:ring-cyan-500 transition-colors">
                   <input
                     type="checkbox"
                     checked={showControls}
                     onChange={(e) => setShowControls(e.target.checked)}
-                    className="rounded"
+                    className="w-6 h-6 rounded-lg border-2 border-gray-600 text-purple-600 focus:ring-purple-500"
                   />
-                  <span className="text-sm text-gray-300">Show Controls</span>
+                  <span className="text-base text-gray-300 font-medium">Show Controls</span>
                 </label>
               </div>
 
               <button
                 onClick={handleYoutubeSubmit}
                 disabled={!extractYoutubeId(youtubeUrl)}
-                className="w-full py-3 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center justify-center space-x-2"
+                className="w-full py-5 bg-red-600 hover:bg-red-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-xl text-white text-lg font-semibold transition-colors flex items-center justify-center space-x-3 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 focus:ring-offset-[#1a1a1a]"
               >
-                <Youtube className="w-5 h-5" />
+                <Youtube className="w-7 h-7" />
                 <span>Add YouTube Video</span>
               </button>
             </div>
           )}
 
-          {/* Pluto TV Tab */}
+          {/* Pluto TV Tab - TV optimized */}
           {activeTab === 'plutotv' && (
-            <div className="space-y-4">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                <p className="text-sm text-blue-300">
+            <div className="space-y-5">
+              <div className="bg-blue-500/10 border-2 border-blue-500/20 rounded-xl p-5">
+                <p className="text-base text-blue-300">
                   Pluto TV offers free streaming. Enter a channel slug or try one of the popular channels below.
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-2">
+                <label className="block text-base text-gray-400 mb-3">
                   Channel Slug
                 </label>
                 <input
@@ -334,19 +334,19 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                   placeholder="e.g., classic-tv, pluto-tv-movies"
                   value={plutoChannel}
                   onChange={(e) => setPlutoChannel(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="w-full px-5 py-4 bg-white/5 border-2 border-white/10 rounded-xl text-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30"
                 />
               </div>
 
-              {/* Popular channels */}
+              {/* Popular channels - TV optimized */}
               <div>
-                <p className="text-sm text-gray-400 mb-2">Popular Channels</p>
-                <div className="grid grid-cols-2 gap-2">
+                <p className="text-base text-gray-400 mb-3">Popular Channels</p>
+                <div className="grid grid-cols-2 gap-3">
                   {['classic-tv', 'pluto-tv-movies', 'pluto-tv-drama', 'pluto-tv-comedy'].map((slug) => (
                     <button
                       key={slug}
                       onClick={() => setPlutoChannel(slug)}
-                      className={`px-4 py-2 rounded-lg text-sm transition-colors ${
+                      className={`px-5 py-4 rounded-xl text-base font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 ${
                         plutoChannel === slug
                           ? 'bg-blue-600 text-white'
                           : 'bg-white/10 text-gray-300 hover:bg-white/20'
@@ -358,22 +358,22 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                 </div>
               </div>
 
-              <label className="flex items-center space-x-2 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10">
+              <label className="flex items-center space-x-4 p-5 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10 focus-within:ring-2 focus-within:ring-cyan-500 transition-colors">
                 <input
                   type="checkbox"
                   checked={muted}
                   onChange={(e) => setMuted(e.target.checked)}
-                  className="rounded"
+                  className="w-6 h-6 rounded-lg border-2 border-gray-600 text-purple-600 focus:ring-purple-500"
                 />
-                <span className="text-sm text-gray-300">Start Muted</span>
+                <span className="text-base text-gray-300 font-medium">Start Muted</span>
               </label>
 
               <button
                 onClick={handlePlutoSubmit}
                 disabled={!plutoChannel.trim()}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-white font-medium transition-colors flex items-center justify-center space-x-2"
+                className="w-full py-5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-xl text-white text-lg font-semibold transition-colors flex items-center justify-center space-x-3 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-[#1a1a1a]"
               >
-                <Tv className="w-5 h-5" />
+                <Tv className="w-7 h-7" />
                 <span>Add Pluto TV Channel</span>
               </button>
 
@@ -381,19 +381,19 @@ const VideoSourceModal: React.FC<VideoSourceModalProps> = ({
                 href="https://pluto.tv/live-tv"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center space-x-2 text-sm text-gray-400 hover:text-white transition-colors"
+                className="flex items-center justify-center space-x-3 text-base text-gray-400 hover:text-white transition-colors py-3"
               >
                 <span>Browse Pluto TV channels</span>
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink className="w-5 h-5" />
               </a>
             </div>
           )}
         </div>
 
-        {/* Footer with loop indicator */}
-        <div className="p-4 border-t border-white/10 flex items-center justify-between text-sm text-gray-500">
-          <div className="flex items-center space-x-2">
-            <Check className={`w-4 h-4 ${loop ? 'text-green-400' : 'text-gray-600'}`} />
+        {/* Footer with loop indicator - TV optimized */}
+        <div className="p-5 border-t border-white/10 flex items-center justify-between text-base text-gray-500">
+          <div className="flex items-center space-x-3">
+            <Check className={`w-6 h-6 ${loop ? 'text-green-400' : 'text-gray-600'}`} />
             <span>Loop: {loop ? 'Enabled' : 'Disabled'}</span>
           </div>
           <span>Toggle loop in the main panel</span>
