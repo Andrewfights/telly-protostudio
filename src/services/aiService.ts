@@ -2,17 +2,65 @@ import { GoogleGenAI } from "@google/genai";
 import type { ZoneId, LEDSettings, MediaItem } from '../types';
 import { addMedia } from './mediaService';
 
+// Storage key for API key
+const API_KEY_STORAGE_KEY = 'telly-gemini-api-key';
+
 // Lazy initialize Gemini AI to avoid errors when API key is not set
 let ai: GoogleGenAI | null = null;
+let currentApiKey: string | null = null;
+
+/**
+ * Get API key from localStorage or environment
+ */
+export function getStoredApiKey(): string | null {
+  // Check localStorage first
+  const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (storedKey) {
+    return storedKey;
+  }
+  // Fall back to environment variable
+  return import.meta.env.VITE_GEMINI_API_KEY || null;
+}
+
+/**
+ * Save API key to localStorage
+ */
+export function saveApiKey(apiKey: string): void {
+  localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  // Reset AI instance to use new key
+  ai = null;
+  currentApiKey = null;
+}
+
+/**
+ * Remove API key from localStorage
+ */
+export function clearApiKey(): void {
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+  ai = null;
+  currentApiKey = null;
+}
+
+/**
+ * Check if API key is configured
+ */
+export function hasApiKey(): boolean {
+  return !!getStoredApiKey();
+}
 
 function getAI(): GoogleGenAI {
-  if (!ai) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured. AI code generation is unavailable.');
-    }
-    ai = new GoogleGenAI({ apiKey });
+  const apiKey = getStoredApiKey();
+
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured. Go to Settings to add your API key.');
   }
+
+  // Reinitialize if key changed
+  if (!ai || currentApiKey !== apiKey) {
+    ai = new GoogleGenAI({ apiKey });
+    currentApiKey = apiKey;
+  }
+
   return ai;
 }
 

@@ -25,6 +25,7 @@ const FullscreenView: React.FC<FullscreenViewProps> = ({
   const [scale, setScale] = useState(1);
   const [focusedZone, setFocusedZone] = useState<ZoneId>('A');
   const [streamModeActive, setStreamModeActive] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Check if focused zone has a stream layout
   const focusedZoneHasStream = useCallback(() => {
@@ -75,6 +76,17 @@ const FullscreenView: React.FC<FullscreenViewProps> = ({
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Listen for camera access from iframes
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'TELLY_CAMERA') {
+        setIsCameraActive(event.data.active);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   // Auto-scale the device
@@ -392,12 +404,48 @@ const FullscreenView: React.FC<FullscreenViewProps> = ({
                 backgroundSize: '4px 4px',
               }}
             />
-            <span className="absolute text-gray-600 font-bold tracking-widest opacity-50">
-              TELLY AUDIO
-            </span>
+
+            {/* Camera Indicator */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center space-x-4">
+              {/* Camera lens */}
+              <div className="relative">
+                <div className={`w-6 h-6 rounded-full border-2 transition-all duration-300 ${
+                  isCameraActive
+                    ? 'border-red-500 bg-red-900/50'
+                    : 'border-gray-600 bg-gray-800'
+                }`}>
+                  {/* Inner lens */}
+                  <div className={`absolute inset-1 rounded-full transition-all duration-300 ${
+                    isCameraActive
+                      ? 'bg-red-500 animate-pulse'
+                      : 'bg-gray-700'
+                  }`} />
+                  {/* Lens reflection */}
+                  <div className="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-white/30" />
+                </div>
+                {/* Recording indicator */}
+                {isCameraActive && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                )}
+              </div>
+
+              {/* TELLY AUDIO text */}
+              <span className="text-gray-600 font-bold tracking-widest opacity-50">
+                TELLY AUDIO
+              </span>
+            </div>
+
             {/* Mute indicator */}
             {isMuted && (
               <span className="absolute right-4 text-red-500 text-sm">MUTED</span>
+            )}
+
+            {/* Camera status indicator */}
+            {isCameraActive && (
+              <span className="absolute left-4 text-red-500 text-xs flex items-center space-x-1">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span>CAMERA</span>
+              </span>
             )}
           </div>
 

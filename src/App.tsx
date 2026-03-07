@@ -17,6 +17,7 @@ import VersionHistoryPanel from './components/VersionHistoryPanel';
 import VersionDiffModal from './components/VersionDiffModal';
 import StreamLayoutPanel from './components/StreamLayoutPanel';
 import PlanModePanel from './components/PlanModePanel';
+import SettingsModal from './components/SettingsModal';
 import { generateZoneCode, generateLEDPattern, generateImage, generateVideo, generateMusic } from './services/aiService';
 import { uploadFile } from './services/mediaService';
 import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/apiService';
@@ -78,6 +79,7 @@ export default function App() {
   const [diffVersions, setDiffVersions] = useState<{ v1: number; v2: number } | null>(null);
   const [showStreamPanel, setShowStreamPanel] = useState(false);
   const [showPlanMode, setShowPlanMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Media/content options
   const [loopMedia, setLoopMedia] = useState(true);
@@ -975,6 +977,14 @@ export default function App() {
                   >
                     <MessageSquare className="w-4 h-4" />
                   </button>
+                  <div className="w-px h-6 bg-white/10 mx-1" />
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="w-8 h-8 rounded flex items-center justify-center transition-all bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                    title="Settings - API Key"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -1271,6 +1281,12 @@ export default function App() {
           setZoneContent(prev => ({ ...prev, [zone]: code }));
           setIsDirty(true);
         }}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
       />
 
       {/* Fullscreen Preview with Remote */}
