@@ -90,8 +90,192 @@ Constraints & Requirements:
 5. **Output Format**: Return ONLY the raw HTML code (which includes <style> and <script> tags). Do not wrap it in markdown code blocks (like \`\`\`html). Just the raw string.
 6. **Design System**: Telly's UI is modern, sleek, and often uses dark modes (black backgrounds, white text) to blend with the hardware bezel.
 
+**CRITICAL - REMOTE CONTROL SUPPORT (MANDATORY)**:
+All interactive content MUST be fully controllable via D-pad remote control. Include this in EVERY app/game/experience:
+
+1. **Keyboard Event Handling**: Always add this remote control handler:
+\`\`\`javascript
+document.addEventListener('keydown', (e) => {
+  switch(e.key) {
+    case 'ArrowUp': /* handle up navigation */ break;
+    case 'ArrowDown': /* handle down navigation */ break;
+    case 'ArrowLeft': /* handle left navigation */ break;
+    case 'ArrowRight': /* handle right navigation */ break;
+    case 'Enter': case ' ': /* handle select/action */ break;
+    case 'Escape': case 'Backspace': /* handle back/cancel */ break;
+  }
+  e.preventDefault();
+});
+\`\`\`
+
+2. **Focus Management**:
+   - Track focused element index
+   - Show visible focus indicator (cyan border: border-2 border-cyan-500)
+   - Support wrapping navigation (last item -> first item)
+
+3. **Visual Focus States**:
+   - Focused: cyan border + slight scale (transform: scale(1.02))
+   - Selected: purple/indigo background
+   - Minimum button size: 48px height for TV
+
+4. **PostMessage for Parent Communication**:
+   - Listen for: window.addEventListener('message', (e) => { if(e.data.type === 'TELLY_REMOTE_KEY') handleKey(e.data.key); })
+   - This allows the parent frame to forward remote events
+
 When the user asks for a feature, generate the complete HTML file content for the specified Zone.
 `;
+
+// Analyze prompt to determine if clarification is needed
+const ANALYZE_PROMPT_INSTRUCTION = `
+You are an AI assistant helping users build TV prototypes.
+Analyze the user's request and determine if you need clarification before building.
+
+Respond in JSON format:
+{
+  "needsClarification": boolean,
+  "questions": ["question1", "question2"], // if clarification needed
+  "thinking": ["thought1", "thought2", "thought3"], // your reasoning steps
+  "plan": ["step1", "step2", "step3"], // implementation plan if clear enough
+  "confidence": number // 0-100
+}
+
+Ask clarification questions for:
+- Ambiguous features ("make it cool" - what does cool mean?)
+- Missing game mechanics (game without rules specified)
+- Unclear data sources (weather app - which location?)
+- Design preferences when multiple valid options exist
+
+Do NOT ask for clarification when:
+- Request is clear and specific
+- Standard implementation is obvious
+- Technical details you can decide as the expert
+`;
+
+export interface PromptAnalysis {
+  needsClarification: boolean;
+  questions: string[];
+  thinking: string[];
+  plan: string[];
+  confidence: number;
+}
+
+export interface GenerationProgress {
+  phase: 'analyzing' | 'planning' | 'generating' | 'complete';
+  thinking: string[];
+  currentStep: string;
+  progress: number;
+}
+
+/**
+ * Analyze a prompt to determine if clarification is needed
+ */
+export async function analyzePrompt(prompt: string, zone: ZoneId): Promise<PromptAnalysis> {
+  const client = getAI();
+  const dim = ZONE_DIMENSIONS[zone];
+
+  const fullPrompt = `
+User wants to build for Zone ${zone} (${dim.width}x${dim.height} - ${dim.description}):
+"${prompt}"
+
+Analyze this request and respond with JSON.
+`;
+
+  try {
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }],
+      config: {
+        systemInstruction: ANALYZE_PROMPT_INSTRUCTION,
+        temperature: 0.3,
+      }
+    });
+
+    const text = response.text || "{}";
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    return {
+      needsClarification: false,
+      questions: [],
+      thinking: ["Processing request..."],
+      plan: ["Generate code based on request"],
+      confidence: 70
+    };
+  } catch (error) {
+    console.error("Error analyzing prompt:", error);
+    return {
+      needsClarification: false,
+      questions: [],
+      thinking: ["Unable to analyze, proceeding with generation"],
+      plan: ["Generate code"],
+      confidence: 50
+    };
+  }
+}
+
+/**
+ * Generate code with step-by-step thinking updates
+ */
+export async function generateWithThinking(
+  zone: ZoneId,
+  prompt: string,
+  onProgress: (progress: GenerationProgress) => void,
+  currentCode?: string
+): Promise<string> {
+  const dim = ZONE_DIMENSIONS[zone];
+
+  // Phase 1: Analyzing
+  onProgress({
+    phase: 'analyzing',
+    thinking: ['Understanding the request...', `Target: Zone ${zone} (${dim.width}x${dim.height})`],
+    currentStep: 'Analyzing requirements',
+    progress: 10
+  });
+
+  // Analyze the prompt
+  const analysis = await analyzePrompt(prompt, zone);
+
+  // Phase 2: Planning
+  onProgress({
+    phase: 'planning',
+    thinking: [...analysis.thinking],
+    currentStep: 'Creating implementation plan',
+    progress: 30
+  });
+
+  await new Promise(r => setTimeout(r, 500)); // Brief pause for UX
+
+  // Show plan
+  onProgress({
+    phase: 'planning',
+    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan],
+    currentStep: 'Plan ready',
+    progress: 50
+  });
+
+  // Phase 3: Generating
+  onProgress({
+    phase: 'generating',
+    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan, '---', 'Generating code...'],
+    currentStep: 'Writing HTML/CSS/JS',
+    progress: 70
+  });
+
+  // Generate the code
+  const code = await generateZoneCode(zone, prompt, currentCode);
+
+  // Phase 4: Complete
+  onProgress({
+    phase: 'complete',
+    thinking: [...analysis.thinking, '---', 'Implementation Plan:', ...analysis.plan, '---', 'Code generated successfully!'],
+    currentStep: 'Complete',
+    progress: 100
+  });
+
+  return code;
+}
 
 const ZONE_DIMENSIONS: Record<ZoneId, { width: number; height: number; description: string }> = {
   A: { width: 1920, height: 1080, description: 'Main Screen' },

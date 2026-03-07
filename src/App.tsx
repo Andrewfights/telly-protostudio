@@ -18,7 +18,9 @@ import VersionDiffModal from './components/VersionDiffModal';
 import StreamLayoutPanel from './components/StreamLayoutPanel';
 import PlanModePanel from './components/PlanModePanel';
 import SettingsModal from './components/SettingsModal';
-import { generateZoneCode, generateLEDPattern, generateImage, generateVideo, generateMusic } from './services/aiService';
+import ThinkingPanel from './components/ThinkingPanel';
+import { generateZoneCode, generateLEDPattern, generateImage, generateVideo, generateMusic, analyzePrompt, generateWithThinking } from './services/aiService';
+import type { GenerationProgress, PromptAnalysis } from './services/aiService';
 import { uploadFile } from './services/mediaService';
 import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/apiService';
 import type { ZoneId, ZoneContent, Prototype, ChatMessage, LEDSettings, MediaItem, MediaType, VideoSourceConfig, PrototypeVersion } from './types';
@@ -80,6 +82,13 @@ export default function App() {
   const [showStreamPanel, setShowStreamPanel] = useState(false);
   const [showPlanMode, setShowPlanMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Thinking/reasoning state
+  const [showThinking, setShowThinking] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress | null>(null);
+  const [promptAnalysis, setPromptAnalysis] = useState<PromptAnalysis | null>(null);
+  const [pendingQuestions, setPendingQuestions] = useState<string[] | null>(null);
+  const [askModeEnabled, setAskModeEnabled] = useState(true); // Ask Mode on by default
 
   // Media/content options
   const [loopMedia, setLoopMedia] = useState(true);
@@ -420,22 +429,60 @@ export default function App() {
     }
   };
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+  const handleGenerate = async (additionalContext?: string) => {
+    const userPrompt = additionalContext || prompt.trim();
+    if (!userPrompt) return;
 
     setIsGenerating(true);
-    const userMessage = prompt;
-    setChatHistory(prev => [...prev, { role: 'user', text: userMessage }]);
-    setPrompt('');
+    const userMessage = userPrompt;
+    if (!additionalContext) {
+      setChatHistory(prev => [...prev, { role: 'user', text: userMessage }]);
+      setPrompt('');
+    }
 
     try {
       if (generationMode === 'code') {
-        const code = await generateZoneCode(selectedZone, userMessage, zoneContent[selectedZone]);
+        // For code generation, use the thinking flow
+        setShowThinking(true);
+        setGenerationProgress({ phase: 'analyzing', progress: 5, thinking: ['Starting analysis...'], currentStep: 'Analyzing your request' });
+
+        // Step 1: Analyze prompt for clarification needs (only if Ask Mode is enabled)
+        if (askModeEnabled && !additionalContext) {
+          try {
+            const analysis = await analyzePrompt(userMessage, selectedZone);
+            setPromptAnalysis(analysis);
+
+            if (analysis.needsClarification && analysis.questions.length > 0) {
+              // Show clarification questions
+              setPendingQuestions(analysis.questions);
+              setGenerationProgress(null);
+              setIsGenerating(false);
+              return;
+            }
+          } catch (error) {
+            console.log('Skipping analysis, proceeding directly:', error);
+          }
+        }
+
+        // Step 2: Generate with thinking visualization
+        const code = await generateWithThinking(
+          selectedZone,
+          userMessage,
+          (progress) => {
+            setGenerationProgress(progress);
+          },
+          zoneContent[selectedZone]
+        );
+
         setZoneContent(prev => ({
           ...prev,
           [selectedZone]: code
         }));
         setChatHistory(prev => [...prev, { role: 'ai', text: `Generated code for Zone ${selectedZone}.` }]);
+        setShowThinking(false);
+        setGenerationProgress(null);
+        setPromptAnalysis(null);
+        setPendingQuestions(null);
       } else if (generationMode === 'image') {
         setChatHistory(prev => [...prev, { role: 'ai', text: 'Generating image with Nano Banana 2...' }]);
         const mediaItem = await generateImage(userMessage);
@@ -467,9 +514,27 @@ export default function App() {
       setIsDirty(true);
     } catch (error) {
       setChatHistory(prev => [...prev, { role: 'ai', text: `Error: ${error}` }]);
+      setShowThinking(false);
+      setGenerationProgress(null);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Handle answering clarification questions
+  const handleAnswerQuestions = (answers: Record<string, string>) => {
+    // Build enhanced prompt with answers
+    const answerContext = Object.entries(answers)
+      .map(([question, answer]) => `${question}: ${answer}`)
+      .join('\n');
+
+    const enhancedPrompt = `${prompt}\n\nUser clarifications:\n${answerContext}`;
+
+    setPendingQuestions(null);
+    setShowThinking(true);
+
+    // Continue generation with answers
+    handleGenerate(enhancedPrompt);
   };
 
   const handleSave = async (name: string, description: string, options: { createVersion: boolean; commitMessage: string }) => {
@@ -1088,6 +1153,41 @@ export default function App() {
 
             {/* Scrollable controls area */}
             <div className="flex-1 overflow-y-auto">
+              {/* Thinking Panel - Shows when generating with thinking */}
+              {(showThinking || pendingQuestions) && (
+                <div className="p-4 border-b border-white/10">
+                  <ThinkingPanel
+                    isVisible={true}
+                    progress={generationProgress}
+                    analysis={promptAnalysis}
+                    onAnswerQuestions={handleAnswerQuestions}
+                    pendingQuestions={pendingQuestions || undefined}
+                  />
+                </div>
+              )}
+
+              {/* Ask Mode Toggle */}
+              {generationMode === 'code' && (
+                <div className="px-4 py-2 border-b border-white/10">
+                  <button
+                    onClick={() => setAskModeEnabled(!askModeEnabled)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors text-sm ${
+                      askModeEnabled
+                        ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30'
+                        : 'bg-white/5 text-gray-500 border border-white/10'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-2">
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Ask Mode</span>
+                    </span>
+                    <span className="text-xs opacity-70">
+                      {askModeEnabled ? 'ON - AI will ask clarifying questions' : 'OFF - Generate directly'}
+                    </span>
+                  </button>
+                </div>
+              )}
+
               {/* Chat History */}
               <div className="p-4 space-y-3 min-h-[120px]">
                 {chatHistory.length === 0 ? (
