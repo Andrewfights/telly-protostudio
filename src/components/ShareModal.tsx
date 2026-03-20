@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Link2, Copy, Check, FileJson } from 'lucide-react';
 import type { Prototype } from '../types';
-import { createShareLink } from '../services/apiService';
+import { createShareLink } from '../services/firestoreService';
 import { exportAsJson } from '../utils/exportUtils';
 
 interface ShareModalProps {
@@ -23,8 +23,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, prototype }) =
     setError('');
 
     try {
-      const result = await createShareLink(prototype.id);
-      const fullUrl = `${window.location.origin}${result.data.shareUrl}`;
+      const shareCode = await createShareLink(prototype.id);
+      const fullUrl = `${window.location.origin}/share/${shareCode}`;
       setShareUrl(fullUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create share link');

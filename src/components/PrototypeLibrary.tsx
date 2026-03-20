@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Heart, Grid3X3, Upload, RefreshCw } from 'lucide-react';
+import { Search, Plus, Heart, Grid3X3, Upload, RefreshCw, User } from 'lucide-react';
 import type { Prototype } from '../types';
-import { listPrototypes, deletePrototype, addFavorite, removeFavorite } from '../services/apiService';
+import { listPrototypes, deletePrototype, toggleFavorite } from '../services/firestoreService';
+import { useAuth } from '../contexts/AuthContext';
 import PrototypeCard from './PrototypeCard';
 
 interface PrototypeLibraryProps {
@@ -10,6 +11,7 @@ interface PrototypeLibraryProps {
   onImport: () => void;
   onShare: (prototype: Prototype) => void;
   onEditPrototype: (prototype: Prototype) => void;
+  onOpenLogin?: () => void;
 }
 
 const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
@@ -18,7 +20,9 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
   onImport,
   onShare,
   onEditPrototype,
+  onOpenLogin,
 }) => {
+  const { user, loading: authLoading, isConfigured } = useAuth();
   const [prototypes, setPrototypes] = useState<Prototype[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,6 +30,13 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
   const [error, setError] = useState('');
 
   const loadPrototypes = async () => {
+    // Skip loading if not authenticated and Firebase is configured
+    if (isConfigured && !user) {
+      setPrototypes([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -33,7 +44,7 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
       const result = await listPrototypes({
         search: search || undefined,
         favoritesOnly: filter === 'favorites',
-        sort: 'updated_at',
+        sort: 'updatedAt',
         order: 'desc',
       });
       setPrototypes(result.data);
@@ -45,12 +56,16 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
   };
 
   useEffect(() => {
-    loadPrototypes();
-  }, [filter]);
+    if (!authLoading) {
+      loadPrototypes();
+    }
+  }, [filter, user, authLoading]);
 
   useEffect(() => {
     const debounce = setTimeout(() => {
-      loadPrototypes();
+      if (!authLoading) {
+        loadPrototypes();
+      }
     }, 300);
     return () => clearTimeout(debounce);
   }, [search]);
@@ -66,14 +81,10 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
 
   const handleToggleFavorite = async (prototype: Prototype) => {
     try {
-      if (prototype.isFavorite) {
-        await removeFavorite(prototype.id);
-      } else {
-        await addFavorite(prototype.id);
-      }
+      const newFavoriteStatus = await toggleFavorite(prototype.id);
       setPrototypes((prev) =>
         prev.map((p) =>
-          p.id === prototype.id ? { ...p, isFavorite: !p.isFavorite } : p
+          p.id === prototype.id ? { ...p, isFavorite: newFavoriteStatus } : p
         )
       );
     } catch (err) {
@@ -171,6 +182,26 @@ const PrototypeLibrary: React.FC<PrototypeLibraryProps> = ({
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+          </div>
+        ) : isConfigured && !user ? (
+          // Sign in prompt for non-authenticated users
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center mb-6">
+              <User className="w-10 h-10 text-white" />
+            </div>
+            <h3 className="text-xl font-medium text-white mb-2">
+              Sign In to View Your Projects
+            </h3>
+            <p className="text-sm text-gray-400 mb-6 max-w-md">
+              Sign in with your Google account to save prototypes to the cloud and access them from any device.
+            </p>
+            <button
+              onClick={onOpenLogin}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium transition-all"
+            >
+              <User className="w-5 h-5" />
+              <span>Sign In</span>
+            </button>
           </div>
         ) : prototypes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">

@@ -19,10 +19,13 @@ import StreamLayoutPanel from './components/StreamLayoutPanel';
 import PlanModePanel from './components/PlanModePanel';
 import SettingsModal from './components/SettingsModal';
 import ThinkingPanel from './components/ThinkingPanel';
+import { PixelPet } from './components/PixelPet';
+import UserMenu from './components/UserMenu';
+import LoginModal from './components/LoginModal';
 import { generateZoneCode, generateLEDPattern, generateImage, generateVideo, generateMusic, analyzePrompt, generateWithThinking } from './services/aiService';
 import type { GenerationProgress, PromptAnalysis } from './services/aiService';
 import { uploadFile } from './services/mediaService';
-import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/apiService';
+import { createPrototype, updatePrototype, getSharedPrototype, createZoneTemplate, deletePrototype } from './services/firestoreService';
 import type { ZoneId, ZoneContent, Prototype, ChatMessage, LEDSettings, MediaItem, MediaType, VideoSourceConfig, PrototypeVersion } from './types';
 
 const INITIAL_ZONE_CONTENT: ZoneContent = {
@@ -82,6 +85,8 @@ export default function App() {
   const [showStreamPanel, setShowStreamPanel] = useState(false);
   const [showPlanMode, setShowPlanMode] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPetWidget, setShowPetWidget] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Thinking/reasoning state
   const [showThinking, setShowThinking] = useState(false);
@@ -108,11 +113,12 @@ export default function App() {
 
   const loadSharedPrototype = async (code: string) => {
     try {
-      const result = await getSharedPrototype(code);
-      const proto = result.data.prototype;
-      setZoneContent(proto.zoneContent);
-      setChatHistory([{ role: 'ai', text: `Loaded shared prototype: ${proto.name}` }]);
-      setView('editor');
+      const proto = await getSharedPrototype(code);
+      if (proto) {
+        setZoneContent(proto.zoneContent);
+        setChatHistory([{ role: 'ai', text: `Loaded shared prototype: ${proto.name}` }]);
+        setView('editor');
+      }
       // Clear the URL
       window.history.replaceState({}, '', '/');
     } catch (error) {
@@ -544,25 +550,21 @@ export default function App() {
   };
 
   const handleSave = async (name: string, description: string, options: { createVersion: boolean; commitMessage: string }) => {
-    const prototypeData = {
-      name,
-      description,
-      zoneContent,
-      ledSettings,
-      createVersion: options.createVersion,
-      commitMessage: options.commitMessage,
-    };
-
     if (currentPrototype) {
       // Update existing
-      const result = await updatePrototype(currentPrototype.id, prototypeData);
-      setCurrentPrototype(result.data);
-      const versionMsg = options.createVersion ? ` (v${result.data.totalVersions || 1})` : '';
+      const updated = await updatePrototype(currentPrototype.id, {
+        name,
+        description,
+        zoneContent,
+        ledSettings,
+      });
+      setCurrentPrototype(updated);
+      const versionMsg = options.createVersion ? ` (v${updated.totalVersions || 1})` : '';
       setChatHistory(prev => [...prev, { role: 'ai', text: `Updated prototype: ${name}${versionMsg}` }]);
     } else {
       // Create new
-      const result = await createPrototype(prototypeData);
-      setCurrentPrototype(result.data);
+      const created = await createPrototype(name, zoneContent, description, ledSettings);
+      setCurrentPrototype(created);
       setChatHistory(prev => [...prev, { role: 'ai', text: `Created prototype: ${name} (v1)` }]);
     }
 
@@ -624,15 +626,11 @@ export default function App() {
   };
 
   const handleImport = async (data: { name: string; description?: string; zoneContent: ZoneContent }) => {
-    const result = await createPrototype({
-      name: data.name,
-      description: data.description,
-      zoneContent: data.zoneContent,
-    });
+    const created = await createPrototype(data.name, data.zoneContent, data.description);
 
-    setCurrentPrototype(result.data);
-    setZoneContent(result.data.zoneContent);
-    setChatHistory([{ role: 'ai', text: `Imported: ${result.data.name}` }]);
+    setCurrentPrototype(created);
+    setZoneContent(created.zoneContent);
+    setChatHistory([{ role: 'ai', text: `Imported: ${created.name}` }]);
     setIsDirty(false);
     setView('editor');
   };
@@ -650,12 +648,12 @@ export default function App() {
   const handleSaveDetails = async (name: string, description: string) => {
     if (!detailsPrototype) return;
 
-    const result = await updatePrototype(detailsPrototype.id, { name, description });
-    setDetailsPrototype(result.data);
+    const updated = await updatePrototype(detailsPrototype.id, { name, description });
+    setDetailsPrototype(updated);
 
     // If this is also the current prototype, update it
     if (currentPrototype?.id === detailsPrototype.id) {
-      setCurrentPrototype(result.data);
+      setCurrentPrototype(updated);
     }
   };
 
@@ -688,12 +686,7 @@ export default function App() {
   };
 
   const handleSaveZoneTemplate = async (name: string, description: string) => {
-    await createZoneTemplate({
-      name,
-      zoneId: selectedZone,
-      content: zoneContent[selectedZone],
-      description: description || undefined,
-    });
+    await createZoneTemplate(name, selectedZone, zoneContent[selectedZone], description || undefined);
     setChatHistory(prev => [...prev, { role: 'ai', text: `Saved Zone ${selectedZone} as template: ${name}` }]);
   };
 
@@ -781,6 +774,7 @@ export default function App() {
           onImport={() => setShowImportModal(true)}
           onShare={handleShareFromLibrary}
           onEditPrototype={handleEditPrototype}
+          onOpenLogin={() => setShowLoginModal(true)}
         />
 
         <ImportModal
@@ -796,6 +790,12 @@ export default function App() {
             setSharePrototype(null);
           }}
           prototype={sharePrototype}
+        />
+
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          message="Sign in to save your projects to the cloud"
         />
       </div>
     );
@@ -951,6 +951,11 @@ export default function App() {
                 </button>
               </>
             )}
+            <div className="w-px h-6 bg-white/10" />
+            <UserMenu
+              onOpenSettings={() => setShowSettings(true)}
+              onOpenLogin={() => setShowLoginModal(true)}
+            />
           </div>
         </header>
 
@@ -1038,32 +1043,53 @@ export default function App() {
                       <Icon className="w-4 h-4" />
                     </button>
                   ))}
-                  <div className="w-px h-6 bg-white/10 mx-1" />
+                </div>
+              </div>
+
+              {/* Row 2: Tools & Utilities */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1">
                   <button
                     onClick={() => setShowStreamPanel(true)}
-                    className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
+                    className={`h-7 px-2.5 rounded flex items-center space-x-1.5 transition-all text-xs ${
                       showStreamPanel
                         ? 'bg-purple-600 text-white'
                         : 'bg-gradient-to-r from-purple-600/30 to-indigo-600/30 text-purple-400 hover:from-purple-600/50 hover:to-indigo-600/50'
                     }`}
                     title="Stream Grid Layout"
                   >
-                    <Grid3X3 className="w-4 h-4" />
+                    <Grid3X3 className="w-3.5 h-3.5" />
+                    <span>Streams</span>
                   </button>
                   <button
                     onClick={() => setShowPlanMode(true)}
-                    className="w-8 h-8 rounded flex items-center justify-center transition-all bg-gradient-to-r from-cyan-600/30 to-purple-600/30 text-cyan-400 hover:from-cyan-600/50 hover:to-purple-600/50"
+                    className="h-7 px-2.5 rounded flex items-center space-x-1.5 transition-all text-xs bg-gradient-to-r from-cyan-600/30 to-purple-600/30 text-cyan-400 hover:from-cyan-600/50 hover:to-purple-600/50"
                     title="Plan Mode - AI Assistant"
                   >
-                    <MessageSquare className="w-4 h-4" />
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Plan</span>
                   </button>
-                  <div className="w-px h-6 bg-white/10 mx-1" />
+                </div>
+                <div className="flex items-center space-x-1">
+                  <button
+                    onClick={() => setShowPetWidget(!showPetWidget)}
+                    className={`h-7 px-2.5 rounded flex items-center space-x-1.5 transition-all text-xs ${
+                      showPetWidget
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-gradient-to-r from-pink-600/30 to-purple-600/30 text-pink-400 hover:from-pink-600/50 hover:to-purple-600/50'
+                    }`}
+                    title="Pixel Pet Widget"
+                  >
+                    <span>🐾</span>
+                    <span>Pet</span>
+                  </button>
                   <button
                     onClick={() => setShowSettings(true)}
-                    className="w-8 h-8 rounded flex items-center justify-center transition-all bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                    className="h-7 px-2.5 rounded flex items-center space-x-1.5 transition-all text-xs bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
                     title="Settings - API Key"
                   >
-                    <Settings className="w-4 h-4" />
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>Settings</span>
                   </button>
                 </div>
               </div>
@@ -1282,6 +1308,7 @@ export default function App() {
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         onSave={handleSave}
+        onOpenLogin={() => setShowLoginModal(true)}
         initialName={currentPrototype?.name || ''}
         initialDescription={currentPrototype?.description || ''}
         isUpdate={!!currentPrototype}
@@ -1406,6 +1433,13 @@ export default function App() {
         onClose={() => setShowSettings(false)}
       />
 
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        message="Sign in to save your projects to the cloud"
+      />
+
       {/* Fullscreen Preview with Remote */}
       {showFullscreen && (
         <FullscreenView
@@ -1414,6 +1448,12 @@ export default function App() {
           onExit={() => setShowFullscreen(false)}
         />
       )}
+
+      {/* Pixel Pet Widget */}
+      <PixelPet
+        isOpen={showPetWidget}
+        onClose={() => setShowPetWidget(false)}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Check, AlertCircle, Eye, EyeOff, ExternalLink, Trash2 } from 'lucide-react';
-import { getStoredApiKey, saveApiKey, clearApiKey, hasApiKey } from '../services/aiService';
+import { X, Key, Check, AlertCircle, Eye, EyeOff, ExternalLink, Trash2, Shield, Clock } from 'lucide-react';
+import { getStoredApiKey, saveApiKey, clearApiKey, hasApiKey, getStorageMode, setStorageMode, type ApiKeyStorageMode } from '../services/aiService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,11 +13,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [hasKey, setHasKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [storageMode, setStorageModeState] = useState<ApiKeyStorageMode>('session');
 
   useEffect(() => {
     if (isOpen) {
       const storedKey = getStoredApiKey();
       setHasKey(!!storedKey);
+      setStorageModeState(getStorageMode());
       // Show masked version if key exists
       if (storedKey) {
         setApiKey(storedKey);
@@ -41,7 +43,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
-    saveApiKey(apiKey.trim());
+    saveApiKey(apiKey.trim(), storageMode);
     setHasKey(true);
     setSaved(true);
     setError('');
@@ -57,6 +59,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     setApiKey('');
     setHasKey(false);
     setSaved(false);
+  };
+
+  const handleStorageModeChange = (mode: ApiKeyStorageMode) => {
+    setStorageModeState(mode);
+    // If we have a key, migrate it to the new storage mode
+    if (hasKey && apiKey) {
+      setStorageMode(mode);
+    }
   };
 
   const maskKey = (key: string): string => {
@@ -100,7 +110,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             </div>
 
             <p className="text-sm text-gray-400">
-              Your API key is stored locally in your browser and never sent to our servers.
+              Your API key is stored only in your browser and never sent to any server.
             </p>
 
             {/* API Key Input */}
@@ -123,6 +133,48 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
               >
                 {showKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
+            </div>
+
+            {/* Storage Mode Toggle */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-300">Storage Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleStorageModeChange('session')}
+                  className={`flex items-center space-x-2 p-3 rounded-lg border-2 transition-all ${
+                    storageMode === 'session'
+                      ? 'border-green-500 bg-green-500/10 text-green-400'
+                      : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                  }`}
+                >
+                  <Shield className="w-4 h-4" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Session Only</div>
+                    <div className="text-xs opacity-70">Clears on tab close</div>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStorageModeChange('persistent')}
+                  className={`flex items-center space-x-2 p-3 rounded-lg border-2 transition-all ${
+                    storageMode === 'persistent'
+                      ? 'border-purple-500 bg-purple-500/10 text-purple-400'
+                      : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  <div className="text-left">
+                    <div className="text-sm font-medium">Remember</div>
+                    <div className="text-xs opacity-70">Persists across sessions</div>
+                  </div>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                {storageMode === 'session'
+                  ? '🔒 Most secure: Key is cleared when you close the browser tab.'
+                  : '⚠️ Convenient but less secure: Key stays in browser storage.'}
+              </p>
             </div>
 
             {/* Error Message */}

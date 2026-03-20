@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Download, Trash2, RefreshCw } from 'lucide-react';
 import type { ZoneId, ZoneTemplate } from '../types';
-import { getZoneTemplatesForZone, deleteZoneTemplate } from '../services/apiService';
+import { listZoneTemplates, deleteZoneTemplate } from '../services/firestoreService';
 
 interface LoadZoneModalProps {
   isOpen: boolean;
@@ -42,8 +42,8 @@ const LoadZoneModal: React.FC<LoadZoneModalProps> = ({
     setError('');
 
     try {
-      const result = await getZoneTemplatesForZone(zoneId);
-      setTemplates(result.data);
+      const templates = await listZoneTemplates(zoneId);
+      setTemplates(templates);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates');
     } finally {

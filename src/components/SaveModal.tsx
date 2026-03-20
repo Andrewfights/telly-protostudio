@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, History, GitBranch } from 'lucide-react';
+import { X, Save, History, GitBranch, User } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SaveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (name: string, description: string, options: { createVersion: boolean; commitMessage: string }) => Promise<void>;
+  onOpenLogin?: () => void;
   initialName?: string;
   initialDescription?: string;
   isUpdate?: boolean;
@@ -16,12 +18,14 @@ const SaveModal: React.FC<SaveModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onOpenLogin,
   initialName = '',
   initialDescription = '',
   isUpdate = false,
   currentVersion = 1,
   totalVersions = 1,
 }) => {
+  const { user, loading, isConfigured } = useAuth();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [createVersion, setCreateVersion] = useState(true);
@@ -40,6 +44,46 @@ const SaveModal: React.FC<SaveModalProps> = ({
   }, [isOpen, initialName, initialDescription]);
 
   if (!isOpen) return null;
+
+  // Show sign-in prompt if Firebase is configured but user is not logged in
+  if (isConfigured && !loading && !user) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+        <div className="relative bg-[#1a1a1a] rounded-xl border border-white/10 w-full max-w-md p-6 shadow-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-white">Save Prototype</h2>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-center py-6">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+              <User className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-lg font-medium text-white mb-2">Sign In Required</h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Sign in to save your prototypes to the cloud and access them from any device.
+            </p>
+            <button
+              onClick={() => {
+                onClose();
+                onOpenLogin?.();
+              }}
+              className="w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium transition-all"
+            >
+              <User className="w-4 h-4" />
+              <span>Sign In to Save</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSave = async () => {
     if (!name.trim()) {

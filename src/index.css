@@ -155,3 +155,163 @@
 .tv-select-animation {
   animation: tv-select 0.15s ease-out;
 }
+
+/* ========================================
+   PIXEL PET ANIMATIONS
+   ======================================== */
+
+/* Pet container */
+.pet-sprite {
+  position: relative;
+  image-rendering: pixelated;
+}
+
+.pet-character {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+/* Idle animation - gentle bounce */
+@keyframes pet-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.pet-idle .pet-character {
+  animation: pet-bounce 1.5s ease-in-out infinite;
+}
+
+/* Walk animation - side to side with bounce */
+@keyframes pet-walk {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(3px) translateY(-2px); }
+  50% { transform: translateX(0) translateY(0); }
+  75% { transform: translateX(-3px) translateY(-2px); }
+}
+
+.pet-walk .pet-character {
+  animation: pet-walk 0.6s ease-in-out infinite;
+}
+
+/* Eat animation - nom nom */
+@keyframes pet-eat {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(-5deg); }
+  50% { transform: scale(0.95) rotate(0deg); }
+  75% { transform: scale(1.1) rotate(5deg); }
+}
+
+.pet-eat .pet-character {
+  animation: pet-eat 0.4s ease-in-out infinite;
+}
+
+/* Play animation - excited bouncing */
+@keyframes pet-play {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-8px) rotate(-10deg); }
+  50% { transform: translateY(0) rotate(0deg); }
+  75% { transform: translateY(-8px) rotate(10deg); }
+}
+
+.pet-play .pet-character {
+  animation: pet-play 0.5s ease-in-out infinite;
+}
+
+/* Sleep animation - breathing */
+@keyframes pet-sleep {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.pet-sleep .pet-character {
+  animation: pet-sleep 2s ease-in-out infinite;
+}
+
+/* Happy animation - wiggle */
+@keyframes pet-happy {
+  0%, 100% { transform: rotate(-5deg) scale(1); }
+  25% { transform: rotate(5deg) scale(1.05); }
+  50% { transform: rotate(-5deg) scale(1); }
+  75% { transform: rotate(5deg) scale(1.05); }
+}
+
+.pet-happy .pet-character {
+  animation: pet-happy 0.4s ease-in-out infinite;
+}
+
+/* Sad animation - droopy */
+@keyframes pet-sad {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(2px) rotate(-3deg); }
+}
+
+.pet-sad .pet-character {
+  animation: pet-sad 1.5s ease-in-out infinite;
+  filter: grayscale(30%);
+}
+
+/* Sick animation - wobble */
+@keyframes pet-sick {
+  0%, 100% { transform: rotate(-2deg); filter: hue-rotate(30deg); }
+  50% { transform: rotate(2deg); filter: hue-rotate(30deg); }
+}
+
+.pet-sick .pet-character {
+  animation: pet-sick 0.8s ease-in-out infinite;
+  opacity: 0.8;
+}
+
+/* Effect indicators */
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-20px) scale(0.5); opacity: 0; }
+}
+
+@keyframes zzz-float {
+  0%, 100% { transform: translateX(10px) translateY(-10px); opacity: 0.7; }
+  50% { transform: translateX(15px) translateY(-20px); opacity: 1; }
+}
+
+@keyframes hearts-float {
+  0%, 100% { transform: translateY(-10px) scale(0.8); opacity: 0.8; }
+  50% { transform: translateY(-20px) scale(1); opacity: 1; }
+}
+
+.pet-zzz {
+  position: absolute;
+  top: -10px;
+  right: -5px;
+  font-size: 16px;
+  animation: zzz-float 2s ease-in-out infinite;
+}
+
+.pet-effect {
+  position: absolute;
+  top: -5px;
+  right: 0;
+  font-size: 14px;
+  animation: float-up 1s ease-out infinite;
+}
+
+.pet-hearts {
+  position: absolute;
+  top: -15px;
+  right: -10px;
+  font-size: 14px;
+  animation: hearts-float 1s ease-in-out infinite;
+}
+
+.pet-tears {
+  position: absolute;
+  bottom: 10px;
+  left: 5px;
+  font-size: 12px;
+  animation: float-up 2s ease-out infinite;
+}
+
+.pet-sick-indicator {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  font-size: 16px;
+}

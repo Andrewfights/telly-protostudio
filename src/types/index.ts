@@ -1,6 +1,9 @@
 // Zone definitions
 export type ZoneId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
+// Pet types
+export * from './pet';
+
 // LED definitions
 export type LEDPattern = 'solid' | 'pulse' | 'breathe' | 'rainbow' | 'wave' | 'custom';
 

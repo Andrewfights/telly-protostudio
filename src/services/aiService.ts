@@ -2,40 +2,100 @@ import { GoogleGenAI } from "@google/genai";
 import type { ZoneId, LEDSettings, MediaItem } from '../types';
 import { addMedia } from './mediaService';
 
-// Storage key for API key
+// Storage keys
 const API_KEY_STORAGE_KEY = 'telly-gemini-api-key';
+const STORAGE_MODE_KEY = 'telly-api-key-storage-mode';
+
+// Storage modes
+export type ApiKeyStorageMode = 'session' | 'persistent';
 
 // Lazy initialize Gemini AI to avoid errors when API key is not set
 let ai: GoogleGenAI | null = null;
 let currentApiKey: string | null = null;
 
 /**
- * Get API key from localStorage or environment
+ * Get the current storage mode preference
+ * Defaults to 'session' for better security
  */
-export function getStoredApiKey(): string | null {
-  // Check localStorage first
-  const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-  if (storedKey) {
-    return storedKey;
-  }
-  // Fall back to environment variable
-  return import.meta.env.VITE_GEMINI_API_KEY || null;
+export function getStorageMode(): ApiKeyStorageMode {
+  return (localStorage.getItem(STORAGE_MODE_KEY) as ApiKeyStorageMode) || 'session';
 }
 
 /**
- * Save API key to localStorage
+ * Set storage mode preference
  */
-export function saveApiKey(apiKey: string): void {
-  localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+export function setStorageMode(mode: ApiKeyStorageMode): void {
+  localStorage.setItem(STORAGE_MODE_KEY, mode);
+
+  // If switching to session mode, migrate key from localStorage to sessionStorage
+  if (mode === 'session') {
+    const persistentKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    if (persistentKey) {
+      sessionStorage.setItem(API_KEY_STORAGE_KEY, persistentKey);
+      localStorage.removeItem(API_KEY_STORAGE_KEY);
+    }
+  }
+  // If switching to persistent, migrate from sessionStorage to localStorage
+  else if (mode === 'persistent') {
+    const sessionKey = sessionStorage.getItem(API_KEY_STORAGE_KEY);
+    if (sessionKey) {
+      localStorage.setItem(API_KEY_STORAGE_KEY, sessionKey);
+      sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+    }
+  }
+}
+
+/**
+ * Get API key from storage (session or persistent based on mode)
+ * Priority: sessionStorage -> localStorage -> env variable
+ */
+export function getStoredApiKey(): string | null {
+  // Check sessionStorage first (most secure, per-session)
+  const sessionKey = sessionStorage.getItem(API_KEY_STORAGE_KEY);
+  if (sessionKey) {
+    return sessionKey;
+  }
+
+  // Check localStorage (persistent across sessions)
+  const persistentKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (persistentKey) {
+    return persistentKey;
+  }
+
+  // No fallback to env variable - users must provide their own key
+  return null;
+}
+
+/**
+ * Save API key using the current storage mode
+ */
+export function saveApiKey(apiKey: string, mode?: ApiKeyStorageMode): void {
+  const storageMode = mode || getStorageMode();
+
+  // Clear from both storages first
+  sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+
+  // Save to appropriate storage
+  if (storageMode === 'session') {
+    sessionStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  } else {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+  }
+
+  // Update mode preference
+  setStorageMode(storageMode);
+
   // Reset AI instance to use new key
   ai = null;
   currentApiKey = null;
 }
 
 /**
- * Remove API key from localStorage
+ * Remove API key from all storages
  */
 export function clearApiKey(): void {
+  sessionStorage.removeItem(API_KEY_STORAGE_KEY);
   localStorage.removeItem(API_KEY_STORAGE_KEY);
   ai = null;
   currentApiKey = null;
